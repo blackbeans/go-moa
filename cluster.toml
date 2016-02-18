@@ -1,0 +1,25 @@
+# This is a TOML document.
+
+
+#当前使用的环境
+[env]
+	name="moa-demo"
+	runMode=online
+	hostport=:8080
+
+#momokeeper的管理	
+[momokeeper]
+	[#momokeeper.dev]
+		hosts="localhost:2181"
+	[#momokeeper.online]
+		hosts="vm-bibi-zk-mq001.vm:2181,vm-bibi-zk-mq002.vm:2181,vm-bibi-zk-mq003.vm:2181" 
+
+#cluster的服务器
+[clusters]
+	[clusters.dev]
+		env="dev" #env=dev/online
+		processTimeout=5000
+
+	[clusters.online]
+		env="online" #env=dev/online
+		processTimeout=5000
