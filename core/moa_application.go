@@ -8,11 +8,6 @@ import (
 	"github.com/blackbeans/turbo/server"
 )
 
-type Service struct {
-	serviceUri string
-	instance   interface{}
-}
-
 type ServiceBundle func() []Service
 
 type Application struct {
