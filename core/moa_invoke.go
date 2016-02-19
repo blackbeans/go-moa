@@ -6,8 +6,8 @@ import (
 
 type MethodMeta struct {
 	Name   string
-	Method reflect.Value
-	Fields []reflect.Kind
+	Method reflect.Method
+	Fields []reflect.Type
 }
 
 type Service struct {
@@ -26,21 +26,21 @@ func NewInvocationHandler(services []Service) *InvocationHandler {
 	instances := make(map[string]Service, len(services))
 	//对instace进行反射获得方法
 	for _, s := range services {
-		v := reflect.ValueOf(s.Instance)
+		v := reflect.TypeOf(s.Instance)
 		numMethod := v.NumMethod()
 		s.methods = make(map[string]MethodMeta, numMethod)
 		for i := 0; i < numMethod; i++ {
 			mm := MethodMeta{}
 			m := v.Method(i)
 			mm.Method = m
-			methodName := m.String()
-			mm.Name = methodName
-			s.methods[methodName] = mm
-			fn := m.NumField()
-			mm.Fields = make([]reflect.Kind, 0, fn)
+			mm.Name = m.Name
+			s.methods[m.Name] = mm
+			fn := m.Type.NumIn()
+			mm.Fields = make([]reflect.Type, 0, fn)
 			for j := 0; j < fn; j++ {
-				f := m.Field(j)
-				mm.Fields = append(mm.Fields, f.Kind())
+				f := m.Type.In(j)
+				mm.Fields = append(mm.Fields, f)
+
 			}
 		}
 		instances[s.ServiceUri] = s

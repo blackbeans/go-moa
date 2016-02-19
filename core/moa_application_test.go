@@ -3,7 +3,6 @@ package core
 import (
 	"gopkg.in/redis.v3"
 	"testing"
-	"time"
 )
 
 func init() {
