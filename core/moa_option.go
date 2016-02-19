@@ -17,11 +17,13 @@ type HostPort struct {
 //配置信息
 type Option struct {
 	Env struct {
-		Name     string
-		RunMode  string
-		HostPort string
-	} //使用的环境
-	Momokeeper map[string]HostPort //zookeeper的配置
+		Name        string
+		RunMode     string
+		BindAddress string
+	}
+
+	//使用的环境
+	Momokeeper map[string]HostPort //momokeeper的配置
 	Clusters   map[string]Cluster  //各集群的配置
 }
 
@@ -29,7 +31,7 @@ type Option struct {
 //Cluster配置
 type Cluster struct {
 	Env               string //当前环境使用的是dev还是online
-	ProcessTimeout    int64  //处理超时
+	ProcessTimeout    int    //处理超时 5 s单位
 	MaxDispatcherSize int    //=8000//最大分发处理协程数
 	ReadBufferSize    int    //=16 * 1024 //读取缓冲大小
 	WriteBufferSize   int    //=16 * 1024 //写入缓冲大小
@@ -63,9 +65,10 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 	}
 	log.DebugLog("application", "LoadConfiruation|Parse|toml:%s", string(buff))
 	//读取配置
-	var option *Option
-	err = toml.Unmarshal(buff, option)
+	var option Option
+	err = toml.Unmarshal(buff, &option)
 	if nil != err {
+		log.ErrorLog("application", "LoadConfiruation|Parse|FAIL|%s", err)
 		return nil, err
 	}
 
@@ -111,9 +114,9 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 	//拼装为可用的MOA参数
 	mop := &MOAOption{}
 	mop.name = option.Env.Name
-	mop.hostport = option.Env.HostPort
+	mop.hostport = option.Env.BindAddress
 	mop.mkhosts = zk.Hosts
-	mop.processTimeout = time.Duration(cluster.ProcessTimeout * int64(time.Millisecond))
+	mop.processTimeout = time.Duration(int64(cluster.ProcessTimeout) * int64(time.Second))
 	mop.maxDispatcherSize = cluster.MaxDispatcherSize //最大分发处理协程数
 	mop.readBufferSize = cluster.ReadBufferSize       //读取缓冲大小
 	mop.writeBufferSize = cluster.WriteBufferSize     //写入缓冲大小

@@ -3,23 +3,45 @@
 
 #当前使用的环境
 [env]
-	name="moa-demo"
-	runMode=online
-	hostport=:8080
+name="moa-demo"
+runMode="online"
+bindAddress=":13000"
 
 #momokeeper的管理	
 [momokeeper]
-	[#momokeeper.dev]
+	[momokeeper.dev]
 		hosts="localhost:2181"
-	[#momokeeper.online]
+	[momokeeper.online]
 		hosts="vm-bibi-zk-mq001.vm:2181,vm-bibi-zk-mq002.vm:2181,vm-bibi-zk-mq003.vm:2181" 
 
 #cluster的服务器
 [clusters]
 	[clusters.dev]
-		env="dev" #env=dev/online
-		processTimeout=5000
-
+		#env=dev/online
+		env="dev" 
+		processTimeout=5
+		#最大分发处理协程数
+		maxDispatcherSize=8000 
+		#读取缓冲大小 
+		readBufferSize=16384 
+		#写入缓冲大小
+		writeBufferSize=16384 
+		#写异步channel长度
+		writeChannelSize=1000 
+		#读异步channel长度
+		readChannelSize=1000 
+		
 	[clusters.online]
-		env="online" #env=dev/online
-		processTimeout=5000
+		#env=dev/online
+		env="online" 
+		processTimeout=5
+		#最大分发处理协程数
+		maxDispatcherSize=8000 
+		#读取缓冲大小 
+		readBufferSize=16384
+		#写入缓冲大小
+		writeBufferSize=16384
+		#写异步channel长度
+		writeChannelSize=1000 
+		#读异步channel长度
+		readChannelSize=1000 

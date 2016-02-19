@@ -36,12 +36,13 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 
 	//需要开发对应的codec
 	cf := func() codec.ICodec {
-		return RedisCodec{}
+		return RedisGetCodec{32 * 1024}
 	}
 
 	//需要开发对应的分包
 	packetDispatcher := func(remoteClient *client.RemotingClient, p *packet.Packet) {
 		//这里面根据解析包的内容得到调用不同的service获得结果
+		remoteClient.Write(*p)
 	}
 
 	//启动remoting
