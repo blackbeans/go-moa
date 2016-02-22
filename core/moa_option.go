@@ -63,7 +63,7 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 	if nil != rerr {
 		return nil, rerr
 	}
-	log.DebugLog("application", "LoadConfiruation|Parse|toml:%s", string(buff))
+	// log.DebugLog("application", "LoadConfiruation|Parse|toml:%s", string(buff))
 	//读取配置
 	var option Option
 	err = toml.Unmarshal(buff, &option)
