@@ -7,6 +7,7 @@ import (
 	"github.com/blackbeans/turbo/codec"
 	"github.com/blackbeans/turbo/packet"
 	"github.com/blackbeans/turbo/server"
+
 	"go-moa/protocol"
 )
 
@@ -36,7 +37,7 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 
 	//需要开发对应的codec
 	cf := func() codec.ICodec {
-		return RedisGetCodec{32 * 1024}
+		return protocol.RedisGetCodec{32 * 1024}
 	}
 	//注册服务
 	app := &Application{}
