@@ -2,13 +2,17 @@ package core
 
 import (
 	"gopkg.in/redis.v3"
+	"reflect"
 	"testing"
 )
 
 func init() {
 	NewApplcation("../cluster.toml", func() []Service {
-		return make([]Service, 0, 2)
+
+		return []Service{Service{ServiceUri: "demo",
+			Instance: Demo{}, Interface: reflect.TypeOf((*IHello)(nil)).Elem()}}
 	})
+
 }
 
 func TestApplication(t *testing.T) {
@@ -20,11 +24,10 @@ func TestApplication(t *testing.T) {
 	})
 	defer client.Close()
 
-	val, _ := client.Get("hello").Result()
+	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"HelloComplexSlice\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
+	val, _ := client.Get(cmd).Result()
 	t.Log(val)
-	if val != "hello" {
-		t.Fail()
-	}
+
 }
 
 func BenchmarkApplication(t *testing.B) {
@@ -37,11 +40,8 @@ func BenchmarkApplication(t *testing.B) {
 	defer client.Close()
 
 	for i := 0; i < t.N; i++ {
-		val, _ := client.Get("hello").Result()
-		t.Log(val)
-		if val != "hello" {
-			t.Fail()
-		}
+		cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"HelloComplexSlice\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
+		client.Get(cmd).Result()
 	}
 
 }

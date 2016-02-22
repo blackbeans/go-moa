@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"encoding/json"
+	"github.com/blackbeans/turbo/packet"
 	"time"
 )
 
@@ -33,4 +35,22 @@ func Command2MoaRequest(cr CommandRequest) MoaReqPacket {
 	req.Method = cr.Params.Method
 	req.Params = cr.Params.Args
 	return req
+}
+
+func Wrap2MoaRequest(data []byte) (*MoaReqPacket, error) {
+	var req CommandRequest
+	err := json.Unmarshal(data, &req)
+	if nil != err {
+		return nil, err
+	} else {
+		mrp := Command2MoaRequest(req)
+		return &mrp, nil
+	}
+
+}
+
+func Wrap2ResponsePacket(p *packet.Packet, resp MoaRespPacket) (*packet.Packet, error) {
+	data, err := json.Marshal(resp)
+	respPacket := packet.NewRespPacket(p.Header.Opaque, p.Header.CmdType, data)
+	return respPacket, err
 }

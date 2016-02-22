@@ -153,6 +153,7 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 
 				case <-time.After(packet.Timeout):
 					resp.ErrCode = protocol.CODE_TIMEOUT_SERVER
+					resp.Message = fmt.Sprintf(protocol.MSG_TIMEOUT, packet.ServiceUri+"#"+packet.Method)
 				}
 			}
 		}

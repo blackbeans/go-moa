@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"fmt"
+	_ "fmt"
 )
 
 type DemoResult struct {
@@ -29,17 +29,17 @@ type Demo struct {
 }
 
 func (self Demo) Hello(text string, param DemoParam) DemoResult {
-	fmt.Println("----------Hello")
+	// fmt.Println("----------Hello")
 	return DemoResult{param.Name, text}
 }
 
 func (self Demo) HelloSlice(text string, arr []string, param DemoParam) DemoResult {
-	fmt.Println("----------Hello")
+	// fmt.Println("----------Hello")
 	return DemoResult{param.Name, text}
 }
 
 func (self Demo) HelloComplexSlice(text string, arg2 map[string]DemoParam, arr []*DemoParam) DemoResult {
-	fmt.Println("----------Hello")
+	// fmt.Println("----------Hello")
 	return DemoResult{"test", text}
 }
 
