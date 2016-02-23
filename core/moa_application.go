@@ -8,15 +8,18 @@ import (
 	"github.com/blackbeans/turbo/packet"
 	"github.com/blackbeans/turbo/server"
 
+	"go-moa/lb"
 	"go-moa/protocol"
+	"go-moa/proxy"
 )
 
-type ServiceBundle func() []Service
+type ServiceBundle func() []proxy.Service
 
 type Application struct {
 	remoting      *server.RemotingServer
-	invokeHandler *InvocationHandler
+	invokeHandler *proxy.InvocationHandler
 	options       *MOAOption
+	configCenter  *lb.ConfigCenter
 }
 
 func NewApplcation(configPath string, bundle ServiceBundle) *Application {
@@ -39,15 +42,22 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 	cf := func() codec.ICodec {
 		return protocol.RedisGetCodec{32 * 1024}
 	}
-	//注册服务
+
+	//创建注册服务
+	configCenter := lb.NewConfigCenter(options.registryType,
+		options.registryHosts, options.hostport, services)
+
 	app := &Application{}
 	app.options = options
-	app.invokeHandler = NewInvocationHandler(services)
+	app.configCenter = configCenter
+	app.invokeHandler = proxy.NewInvocationHandler(services)
 	//启动remoting
 	remoting := server.NewRemotionServerWithCodec(options.hostport, rc, cf, app.packetDispatcher)
 	app.remoting = remoting
 
 	remoting.ListenAndServer()
+	//注册服务
+	configCenter.RegisteAllServices()
 	log.InfoLog("moa-server", "Application|Start|SUCC|%s", name)
 	return app
 }

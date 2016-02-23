@@ -6,12 +6,14 @@
 name="moa-demo"
 runMode="online"
 bindAddress=":13000"
+#可以是momokeeper或者zookeeper
+registryType="momokeeper" 
 
-#momokeeper的管理	
-[momokeeper]
-	[momokeeper.dev]
-		hosts="localhost:2181"
-	[momokeeper.online]
+#registry的管理	
+[registry]
+	[registry.dev]
+		hosts="localhost:13000,localhost:13000"
+	[registry.online]
 		hosts="vm-bibi-zk-mq001.vm:2181,vm-bibi-zk-mq002.vm:2181,vm-bibi-zk-mq003.vm:2181" 
 
 #cluster的服务器

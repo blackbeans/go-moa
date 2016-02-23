@@ -1,4 +1,4 @@
-package core
+package proxy
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	log "github.com/blackbeans/log4go"
 	"go-moa/protocol"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -64,10 +65,10 @@ func NewInvocationHandler(services []Service) *InvocationHandler {
 				mm.ParamTypes = append(mm.ParamTypes, f)
 
 			}
-
-			s.methods[m.Name] = mm
+			s.methods[strings.ToLower(m.Name)] = mm
 		}
 		instances[s.ServiceUri] = s
+		log.InfoLog("moa_handler", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
 	}
 
 	return &InvocationHandler{instances}
@@ -83,7 +84,7 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 		resp.ErrCode = protocol.CODE_SERVICE_NOT_FOUND
 		resp.Message = fmt.Sprintf(protocol.MSG_NO_URI_FOUND, packet.ServiceUri)
 	} else {
-		m, mok := instance.methods[packet.Method]
+		m, mok := instance.methods[strings.ToLower(packet.Method)]
 		if !mok {
 			resp.ErrCode = protocol.CODE_METHOD_NOT_FOUND
 			resp.Message = fmt.Sprintf(protocol.MSG_METHOD_NOT_FOUND, packet.Method)

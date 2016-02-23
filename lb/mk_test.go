@@ -1,12 +1,15 @@
-package core
+package lb
 
 import (
 	"fmt"
+	"go-moa/core"
 	"go-moa/proxy"
-	"gopkg.in/redis.v3"
 	"reflect"
+	"strings"
 	"testing"
 )
+
+//{"hosts":["10.83.76.80:31001?timeout=1000&version=2","10.83.76.78:31001?timeout=1000&version=2","10.83.76.79:31001?timeout=1000&version=2"],"uri":"/service/lookup"}
 
 type DemoResult struct {
 	Hosts []string `json:"hosts"`
@@ -53,10 +56,12 @@ func (self Demo) UnregisterService(serviceUri, hostPort, proto string, config ma
 	return "SUCCESS"
 }
 
+var app *core.Application
+
 func init() {
 	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
 	inter := reflect.TypeOf((*IHello)(nil)).Elem()
-	NewApplcation("../cluster_test.toml", func() []proxy.Service {
+	app = core.NewApplcation("../cluster_test.toml", func() []proxy.Service {
 		return []proxy.Service{
 			proxy.Service{
 				ServiceUri: "/service/lookup",
@@ -71,33 +76,50 @@ func init() {
 
 }
 
-func TestApplication(t *testing.T) {
+func TestRegisteService(t *testing.T) {
+	center := NewConfigCenter("momokeeper", "localhost:13000,localhost:13000", "localhost:12000", nil)
 
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:13000",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	defer client.Close()
+	succ := center.RegisteService("/service/bibi-profile", "localhost:12000", "redis")
+	if !succ {
+		t.Fail()
+	}
 
-	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"GetService\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
-	val, _ := client.Get(cmd).Result()
-	t.Log(val)
+	hosts, err := center.GetService("/service/bibi-profile", "redis")
+	if nil != err {
+		t.Error(err)
+		t.Fail()
+		return
+	}
 
-}
+	if len(hosts) != 1 {
+		t.Log(hosts)
+		t.Fail()
+		return
+	}
+	if !strings.HasPrefix(hosts[0], "localhost:12000") {
+		t.Log(hosts[0])
+		t.Fail()
+		return
+	}
 
-func BenchmarkApplication(t *testing.B) {
+	succ = center.UnRegisteService("/service/bibi-profile", "localhost:12000", "redis")
+	if !succ {
+		t.Log(succ)
+		t.Fail()
+		return
+	}
 
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:13000",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	defer client.Close()
+	hosts, err = center.GetService("/service/bibi-profile", "redis")
+	if nil != err {
+		t.Error(err)
+		t.Fail()
+		return
+	}
 
-	for i := 0; i < t.N; i++ {
-		cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"GetService\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
-		client.Get(cmd).Result()
+	if len(hosts) != 0 {
+		t.Log(hosts)
+		t.Fail()
+		return
 	}
 
 }

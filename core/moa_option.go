@@ -17,14 +17,15 @@ type HostPort struct {
 //配置信息
 type Option struct {
 	Env struct {
-		Name        string
-		RunMode     string
-		BindAddress string
+		Name         string
+		RunMode      string
+		BindAddress  string
+		RegistryType string
 	}
 
 	//使用的环境
-	Momokeeper map[string]HostPort //momokeeper的配置
-	Clusters   map[string]Cluster  //各集群的配置
+	Registry map[string]HostPort //momokeeper的配置
+	Clusters map[string]Cluster  //各集群的配置
 }
 
 //----------------------------------------
@@ -42,7 +43,8 @@ type Cluster struct {
 //---------最终需要的Option
 type MOAOption struct {
 	name              string
-	mkhosts           string
+	registryType      string
+	registryHosts     string
 	hostport          string
 	processTimeout    time.Duration
 	maxDispatcherSize int           //=8000//最大分发处理协程数
@@ -85,9 +87,9 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 		return nil, errors.New("no cluster config for " + option.Env.RunMode)
 	}
 
-	zk, exist := option.Momokeeper[option.Env.RunMode]
+	reg, exist := option.Registry[option.Env.RunMode]
 	if !exist {
-		return nil, errors.New("no zk  for " + option.Env.RunMode + ":" + cluster.Env)
+		return nil, errors.New("no reg  for " + option.Env.RunMode + ":" + cluster.Env)
 	}
 
 	if cluster.MaxDispatcherSize <= 0 {
@@ -115,7 +117,8 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 	mop := &MOAOption{}
 	mop.name = option.Env.Name
 	mop.hostport = option.Env.BindAddress
-	mop.mkhosts = zk.Hosts
+	mop.registryType = option.Env.RegistryType
+	mop.registryHosts = reg.Hosts
 	mop.processTimeout = time.Duration(int64(cluster.ProcessTimeout) * int64(time.Second))
 	mop.maxDispatcherSize = cluster.MaxDispatcherSize //最大分发处理协程数
 	mop.readBufferSize = cluster.ReadBufferSize       //读取缓冲大小

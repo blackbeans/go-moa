@@ -24,8 +24,8 @@ type MoaReqPacket struct {
 
 //moa响应packet
 type MoaRespPacket struct {
-	ErrCode int         `json:"errorCode"`
-	Message string      `json:"message"`
+	ErrCode int         `json:"ec"`
+	Message string      `json:"em"`
 	Result  interface{} `json:"result"`
 }
 

@@ -1,4 +1,4 @@
-package core
+package proxy
 
 import (
 	"encoding/json"
@@ -46,7 +46,7 @@ func (self Demo) HelloComplexSlice(text string, arg2 map[string]DemoParam, arr [
 func TestInvocationHandler(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: Demo{}, Interface: reflect.TypeOf((*IHello)(nil)).Elem()}})
-	m, ok := handler.instances["demo"].methods["Hello"]
+	m, ok := handler.instances["demo"].methods["hello"]
 	if !ok {
 		t.Fail()
 	}
