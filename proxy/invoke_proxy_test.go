@@ -2,7 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
-	"go-moa/protocol"
+	"git.wemomo.com/bibi/go-moa/protocol"
 	"reflect"
 	"testing"
 	"time"

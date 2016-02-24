@@ -2,8 +2,8 @@ package lb
 
 import (
 	"fmt"
-	"go-moa/core"
-	"go-moa/proxy"
+	"git.wemomo.com/bibi/go-moa/core"
+	"git.wemomo.com/bibi/go-moa/proxy"
 	"reflect"
 	"strings"
 	"testing"

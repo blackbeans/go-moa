@@ -3,8 +3,8 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"git.wemomo.com/bibi/go-moa/protocol"
 	log "github.com/blackbeans/log4go"
-	"go-moa/protocol"
 	"reflect"
 	"strings"
 	"time"

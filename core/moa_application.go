@@ -8,9 +8,9 @@ import (
 	"github.com/blackbeans/turbo/packet"
 	"github.com/blackbeans/turbo/server"
 
-	"go-moa/lb"
-	"go-moa/protocol"
-	"go-moa/proxy"
+	"git.wemomo.com/bibi/go-moa/lb"
+	"git.wemomo.com/bibi/go-moa/protocol"
+	"git.wemomo.com/bibi/go-moa/proxy"
 )
 
 type ServiceBundle func() []proxy.Service

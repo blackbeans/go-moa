@@ -3,8 +3,8 @@ package lb
 import (
 	"encoding/json"
 	"errors"
+	"git.wemomo.com/bibi/go-moa/protocol"
 	log "github.com/blackbeans/log4go"
-	"go-moa/protocol"
 	"gopkg.in/redis.v3"
 	"time"
 )

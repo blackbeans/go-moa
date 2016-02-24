@@ -1,8 +1,8 @@
 package lb
 
 import (
+	"git.wemomo.com/bibi/go-moa/proxy"
 	log "github.com/blackbeans/log4go"
-	"go-moa/proxy"
 	"strings"
 	"time"
 )

@@ -2,7 +2,7 @@ package core
 
 import (
 	"fmt"
-	"go-moa/proxy"
+	"git.wemomo.com/bibi/go-moa/proxy"
 	"gopkg.in/redis.v3"
 	"reflect"
 	"testing"
