@@ -25,7 +25,7 @@ type momokeeper struct {
 	serviceUri   string
 }
 
-func newMomokeeper(regAddr, lookupAddr string) *momokeeper {
+func NewMomokeeper(regAddr, lookupAddr string) *momokeeper {
 	regClient := redis.NewClient(&redis.Options{
 		Addr:        regAddr,
 		Password:    "", // no password set

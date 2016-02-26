@@ -31,9 +31,9 @@ func NewConfigCenter(registryType string, registryAddr string,
 	if registryType == "momokeeper" {
 		split := strings.Split(registryAddr, ",")
 		if len(split) > 1 {
-			reg = newMomokeeper(split[0], split[1])
+			reg = NewMomokeeper(split[0], split[1])
 		} else {
-			reg = newMomokeeper(split[0], split[0])
+			reg = NewMomokeeper(split[0], split[0])
 		}
 
 	} else if registryType == "zookeeper" {
