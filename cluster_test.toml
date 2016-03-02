@@ -7,7 +7,8 @@ name="moa-demo"
 runMode="online"
 bindAddress=":13000"
 #可以是momokeeper或者zookeeper
-registryType="momokeeper" 
+#registryType="momokeeper" 
+registryType="zookeeper" 
 
 #registry的管理	
 [registry]
