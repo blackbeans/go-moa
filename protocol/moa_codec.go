@@ -101,12 +101,13 @@ func (self RedisGetCodec) UnmarshalPacket(buff *bytes.Buffer) (*packet.Packet, e
 //直接获取data
 //$+n+\r\n+ [data]+\r\n
 func (self RedisGetCodec) MarshalPacket(packet *packet.Packet) []byte {
-	l := strconv.Itoa(len(packet.Data))
-	buff := bytes.NewBuffer(make([]byte, 0, 1+len(l)+2+len(packet.Data)+2))
+	body := string(packet.Data)
+	l := len(strconv.Itoa(len(body)))
+	buff := bytes.NewBuffer(make([]byte, 0, 1+l+2+len(body)+2))
 	buff.WriteString("$")
-	buff.WriteString(l)
+	buff.WriteString(strconv.Itoa(len(body)))
 	buff.WriteString("\r\n")
-	buff.WriteString(string(packet.Data))
+	buff.WriteString(body)
 	buff.WriteString("\r\n")
 	return buff.Bytes()
 }
