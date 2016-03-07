@@ -67,7 +67,7 @@ func (self ConfigCenter) RegisteAllServices() {
 		if succ {
 			log.InfoLog("config_center", "ConfigCenter|RegisteAllServices|SUCC|%s", s.ServiceUri)
 		} else {
-			panic("ConfigCenter|RegisteAllServicesFAIL|" + s.ServiceUri)
+			panic("ConfigCenter|RegisteAllServices|FAIL|" + s.ServiceUri)
 		}
 	}
 

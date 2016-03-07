@@ -66,6 +66,8 @@ func (self momokeeper) RegisteService(serviceUri, hostport, protoType string) bo
 	if nil == err {
 		log.InfoLog("config_center", "momokeeper|RegisteService|SUCC|%s|%s|%s", hostport, serviceUri, protoType)
 		return true
+	} else {
+		log.ErrorLog("config_center", "momokeeper|RegisteService|FAIL|%s|%s|%s|%s", err, hostport, serviceUri, protoType)
 	}
 	return false
 
@@ -109,6 +111,8 @@ func (self momokeeper) UnRegisteService(serviceUri, hostport, protoType string) 
 	if nil == err {
 		log.InfoLog("config_center", "momokeeper|UnRegisteService|SUCC|%s|%s|%s", hostport, serviceUri, protoType)
 		return true
+	} else {
+		log.ErrorLog("config_center", "momokeeper|UnRegisteService|FAIL|%s|%s|%s|%s", err, hostport, serviceUri, protoType)
 	}
 	return false
 
