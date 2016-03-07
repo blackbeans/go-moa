@@ -69,7 +69,7 @@ func TestInvocationInvoke(t *testing.T) {
 	req.Timeout = 5 * time.Second
 	resp := handler.Invoke(req)
 	t.Logf("TestInvocationInvoke|Invoke|%s\n", resp.Result)
-	if resp.ErrCode != 200 {
+	if resp.ErrCode != 200 && resp.ErrCode != 0 {
 		t.Fail()
 	} else {
 		data, _ := json.Marshal(resp.Result)
@@ -88,7 +88,7 @@ func TestInvokeHelloSlice(t *testing.T) {
 	req.Timeout = 5 * time.Second
 	resp := handler.Invoke(req)
 	t.Logf("TestInvokeHelloSlice|Invoke|%s\n", resp.Result)
-	if resp.ErrCode != 200 {
+	if resp.ErrCode != 200 && resp.ErrCode != 0 {
 		t.Fail()
 	} else {
 		data, _ := json.Marshal(resp.Result)
@@ -111,7 +111,7 @@ func TestInvokeJsonParams(t *testing.T) {
 	moaReq.Timeout = 5 * time.Second
 	resp := handler.Invoke(moaReq)
 	t.Logf("TestInvokeHelloSlice|Invoke|%s\n", resp.Result)
-	if resp.ErrCode != 200 {
+	if resp.ErrCode != 200 && resp.ErrCode != 0 {
 		t.Fail()
 	} else {
 		data, _ := json.Marshal(resp.Result)
@@ -134,7 +134,7 @@ func TestComplexSliceJsonParams(t *testing.T) {
 	moaReq.Timeout = 5 * time.Second
 	resp := handler.Invoke(moaReq)
 	t.Logf("TestInvokeHelloSlice|Invoke|%s\n", resp)
-	if resp.ErrCode != 200 {
+	if resp.ErrCode != 200 && resp.ErrCode != 0 {
 		t.Fail()
 	} else {
 		data, _ := json.Marshal(resp.Result)

@@ -128,16 +128,16 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 				if resp.ErrCode != 0 && resp.ErrCode != protocol.CODE_SERVER_SUCC {
 					return resp
 				}
-
+				errChan := make(chan interface{}, 1)
 				r := make(chan []reflect.Value, 1)
 				go func() {
 					defer func() {
 						if err := recover(); nil != err {
 							//TODO LOG ERROR
-							log.ErrorLog("moa_handler", "InvocationHandler|Invoke|Call|FAIL|%s|%s|%s",
-								err, m.Method, params)
+							log.ErrorLog("moa_handler", "InvocationHandler|Invoke|Call|FAIL|%s|%s|%s|%s",
+								err, packet.ServiceUri, m.Name, params)
 							resp.Message = fmt.Sprintf(protocol.MSG_INVOCATION_TARGET, err)
-							r <- nil
+							errChan <- err
 						}
 					}()
 					r <- m.Method.Call(params)
@@ -147,10 +147,14 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 				case result := <-r:
 					if nil == result {
 						resp.ErrCode = protocol.CODE_INVOCATION_TARGET
+						resp.Message = fmt.Sprintf("NO Result ...")
 					} else {
 						resp.ErrCode = protocol.CODE_SERVER_SUCC
 						resp.Result = result[0].Interface()
 					}
+				case err := <-errChan:
+					resp.ErrCode = protocol.CODE_INVOCATION_TARGET
+					resp.Message = fmt.Sprintf("Invoke FAIL %s", err)
 
 				case <-time.After(packet.Timeout):
 					resp.ErrCode = protocol.CODE_TIMEOUT_SERVER

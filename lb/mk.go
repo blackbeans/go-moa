@@ -128,10 +128,10 @@ func (self momokeeper) GetService(serviceUri, protoType string) ([]string, error
 	cmd.Params.Args = args
 	resp, err := self.invokeResponse(self.lookupClient, MK_GET_METHOD, cmd)
 
-	if nil == err {
+	if nil == err && nil != resp {
 		result, asOk := resp.(map[string]interface{})
 		if !asOk {
-			log.WarnLog("config_center", "momokeeper|GetService|Assert|FAIL|%s|%s", serviceUri, protoType)
+			log.WarnLog("config_center", "momokeeper|GetService|Assert|FAIL|%s|%s|%s", serviceUri, protoType, resp)
 			return nil, err
 		}
 
@@ -152,10 +152,9 @@ func (self momokeeper) GetService(serviceUri, protoType string) ([]string, error
 		} else {
 			log.WarnLog("config_center", "momokeeper|GetService|NO Hosts|FAIL|%s|%s|hosts:%s", serviceUri, protoType, result)
 		}
-
-		return nil, errors.New("No Hosts! " + serviceUri + "?protocol=" + protoType)
 	}
-	return nil, err
+
+	return nil, errors.New("No Hosts! " + serviceUri + "?protocol=" + protoType)
 
 }
 
