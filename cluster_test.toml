@@ -4,16 +4,16 @@
 #当前使用的环境
 [env]
 name="moa-demo"
-runMode="online"
+runMode="dev"
 bindAddress=":13000"
 #可以是momokeeper或者zookeeper
-#registryType="momokeeper" 
-registryType="zookeeper" 
+registryType="momokeeper" 
+#registryType="zookeeper" 
 
 #registry的管理	
 [registry]
 	[registry.dev]
-		hosts="localhost:13000,localhost:13000"
+		hosts="localhost:13000"
 	[registry.online]
 		hosts="vm-bibi-zk-mq001.vm:2181,vm-bibi-zk-mq002.vm:2181,vm-bibi-zk-mq003.vm:2181" 
 

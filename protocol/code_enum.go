@@ -1,7 +1,7 @@
 package protocol
 
 const (
-	CODE_SERVER_SUCC = 200
+	CODE_SERVER_SUCC = 0
 	// Error code list
 	CODE_THROWABLE      = 300
 	CODE_INITIALIZETION = 301

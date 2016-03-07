@@ -74,9 +74,7 @@ func (self ConfigCenter) RegisteAllServices() {
 	//注册服务
 	for _, s := range self.services {
 		succ := self.RegisteService(s.ServiceUri, self.hostport, PROTOCOL)
-		if succ {
-			log.InfoLog("config_center", "ConfigCenter|RegisteAllServices|SUCC|%s", s.ServiceUri)
-		} else {
+		if !succ {
 			panic("ConfigCenter|RegisteAllServices|FAIL|" + s.ServiceUri)
 		}
 	}

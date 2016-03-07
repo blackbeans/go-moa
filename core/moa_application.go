@@ -88,8 +88,8 @@ func (self Application) packetDispatcher(remoteClient *client.RemotingClient, p 
 		if nil != err {
 			log.ErrorLog("moa-server", "Application|packetDispatcher|Wrap2ResponsePacket|FAIL|%s|%s", err, result)
 		} else {
-			log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
 			remoteClient.Write(*resp)
+			//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
 		}
 
 	}

@@ -2,9 +2,7 @@ package lb
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
-	"git.wemomo.com/bibi/go-moa/protocol"
 	"github.com/blackbeans/go-zookeeper/zk"
 	log "github.com/blackbeans/log4go"
 	"strings"

@@ -21,7 +21,7 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 		return nil, errors.New("Read Packet Err " + err.Error())
 	}
 
-	//*$2\r\n$3\r\nGET\r\n${0}\r\n{"method":"","service-uri":""}
+	//*3\r\n$3\r\nGET\r\n${0}\r\n{"method":"","service-uri":""}
 	start := bytes.HasPrefix(line, []byte{'*'})
 	if start {
 		//获取到共有多少个\r\n
