@@ -8,7 +8,9 @@ import (
 )
 
 const (
-	PROTOCOL = "redis"
+	PROTOCOL            = "redis"
+	REGISTRY_MOMOKEEPER = "momokeeper"
+	REGISTRY_ZOOKEEPER  = "zookeeper"
 )
 
 type ConfigCenter struct {
@@ -28,7 +30,7 @@ type IRegistry interface {
 func NewConfigCenter(registryType string, registryAddr string,
 	hostport string, services []proxy.Service) *ConfigCenter {
 	var reg IRegistry
-	if registryType == "momokeeper" {
+	if registryType == REGISTRY_MOMOKEEPER {
 		split := strings.Split(registryAddr, ",")
 		if len(split) > 1 {
 			reg = NewMomokeeper(split[0], split[1])
@@ -36,12 +38,17 @@ func NewConfigCenter(registryType string, registryAddr string,
 			reg = NewMomokeeper(split[0], split[0])
 		}
 
-	} else if registryType == "zookeeper" {
-
+	} else if registryType == REGISTRY_ZOOKEEPER {
+		split := strings.Split(registryAddr, ",")
+		if len(split) > 1 {
+			reg = NewZookeeper(split[0], split[1])
+		} else {
+			reg = NewZookeeper(split[0], split[0])
+		}
 	}
 	center := &ConfigCenter{registry: reg, services: services, hostport: hostport}
 	//如果是momokeeper则定时注册服务
-	if registryType == "momokeeper" {
+	if registryType == REGISTRY_MOMOKEEPER {
 		go func() {
 			for {
 				time.Sleep(5 * time.Minute)
@@ -56,6 +63,9 @@ func NewConfigCenter(registryType string, registryAddr string,
 				}()
 			}
 		}()
+	} else if registryType == REGISTRY_ZOOKEEPER {
+		//	 zookeeper发布一次吧
+		center.RegisteAllServices()
 	}
 	return center
 }
