@@ -14,11 +14,11 @@ type DemoResult struct {
 }
 
 type IHello interface {
-	GetService(serviceUri, proto string) DemoResult
+	GetService(serviceUri, proto string) (DemoResult, error)
 	// 注册
-	RegisterService(serviceUri, hostPort, proto string, config map[string]string) string
+	RegisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error)
 	// 注销
-	UnregisterService(serviceUri, hostPort, proto string, config map[string]string) string
+	UnregisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error)
 }
 
 type DemoParam struct {
@@ -30,27 +30,27 @@ type Demo struct {
 	uri   string
 }
 
-func (self Demo) GetService(serviceUri, proto string) DemoResult {
+func (self Demo) GetService(serviceUri, proto string) (DemoResult, error) {
 	result := DemoResult{}
 	val, _ := self.hosts[serviceUri+"_"+proto]
 	result.Hosts = val
 	result.Uri = self.uri
 	fmt.Printf("GetService|SUCC|%s|%s|%s\n", serviceUri, proto, result)
-	return result
+	return result, nil
 }
 
 // 注册
-func (self Demo) RegisterService(serviceUri, hostPort, proto string, config map[string]string) string {
+func (self Demo) RegisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error) {
 	self.hosts[serviceUri+"_"+proto] = []string{hostPort + "?timeout=1000&version=2"}
 	fmt.Println("RegisterService|SUCC|" + serviceUri + "|" + proto)
-	return "SUCCESS"
+	return "SUCCESS", nil
 }
 
 // 注销
-func (self Demo) UnregisterService(serviceUri, hostPort, proto string, config map[string]string) string {
+func (self Demo) UnregisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error) {
 	delete(self.hosts, serviceUri+"_"+proto)
 	fmt.Println("UnregisterService|SUCC|" + serviceUri + "|" + proto)
-	return "SUCCESS"
+	return "SUCCESS", nil
 }
 
 func init() {

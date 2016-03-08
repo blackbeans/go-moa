@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"git.wemomo.com/bibi/go-moa/protocol"
 	log "github.com/blackbeans/log4go"
+	"github.com/go-errors/errors"
 	"reflect"
 	"strings"
 	"time"
@@ -13,7 +14,7 @@ import (
 type MethodMeta struct {
 	Name       string
 	Method     reflect.Value
-	ReturnType reflect.Type
+	ReturnType []reflect.Type
 	ParamTypes []reflect.Type
 }
 
@@ -28,6 +29,8 @@ type Service struct {
 type InvocationHandler struct {
 	instances map[string]Service
 }
+
+var errorType = reflect.TypeOf(make([]error, 1)).Elem()
 
 func NewInvocationHandler(services []Service) *InvocationHandler {
 
@@ -49,19 +52,29 @@ func NewInvocationHandler(services []Service) *InvocationHandler {
 			im := rv.MethodByName(m.Name)
 			mm.Method = im
 			mm.Name = m.Name
-			fn := m.Type.NumIn()
-			//如果方法返回值个数大于1则不允许
-			if m.Type.NumOut() > 1 {
-				panic(fmt.Sprintf("InvocationHandler|Return Args Num %d>%d",
-					m.Type.NumOut(), 1))
-			} else {
-				if m.Type.NumOut() == 1 {
-					mm.ReturnType = m.Type.Out(0)
-				}
+			t := m.Type
+			fn := t.NumIn()
+			outType := make([]reflect.Type, 0, 2)
+			for idx := 0; idx < t.NumOut(); idx++ {
+				outType = append(outType, t.Out(idx))
 			}
+			//返回值必须大于等于1个并且小于2，并且其中一个必须为error类型
+			if t.NumOut() >= 1 && t.NumOut() <= 2 {
+				if !t.Out(t.NumOut() - 1).Implements(errorType) {
+					panic(errors.New(
+						fmt.Sprintf("%s Method  %s Last Return Type Must Be An Error! [%s]",
+							s.ServiceUri, m.Name, t.Out(t.NumOut()-1).String())))
+				}
+			} else {
+				panic(errors.New(
+					fmt.Sprintf("%s Method  %s Last Return Count (1<=n<=2) Type "+
+						"Must Be More Than An Error! ",
+						s.ServiceUri, m.Name)))
+			}
+			mm.ReturnType = outType
 			mm.ParamTypes = make([]reflect.Type, 0, fn)
 			for j := 0; j < fn; j++ {
-				f := m.Type.In(j)
+				f := t.In(j)
 				mm.ParamTypes = append(mm.ParamTypes, f)
 
 			}
@@ -128,16 +141,25 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 				if resp.ErrCode != 0 && resp.ErrCode != protocol.CODE_SERVER_SUCC {
 					return resp
 				}
-				errChan := make(chan interface{}, 1)
+				errChan := make(chan error, 1)
 				r := make(chan []reflect.Value, 1)
 				go func() {
 					defer func() {
 						if err := recover(); nil != err {
+							var e error
+							er, ok := err.(*errors.Error)
+							if ok {
+								stack := er.ErrorStack()
+								e = errors.New(stack)
+							} else {
+								e = errors.New(fmt.Sprintf("Method Call Err %s", err))
+							}
+
 							//TODO LOG ERROR
 							log.ErrorLog("moa_handler", "InvocationHandler|Invoke|Call|FAIL|%s|%s|%s|%s",
-								err, packet.ServiceUri, m.Name, params)
+								e, packet.ServiceUri, m.Name, params)
 							resp.Message = fmt.Sprintf(protocol.MSG_INVOCATION_TARGET, err)
-							errChan <- err
+							errChan <- e
 						}
 					}()
 					r <- m.Method.Call(params)
@@ -151,6 +173,11 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 					} else {
 						resp.ErrCode = protocol.CODE_SERVER_SUCC
 						resp.Result = result[0].Interface()
+						//则肯定会有error
+						if len(result) > 1 {
+							resp.Message = fmt.Sprintf("%v", result[1].Interface())
+						}
+
 					}
 				case err := <-errChan:
 					resp.ErrCode = protocol.CODE_INVOCATION_TARGET
