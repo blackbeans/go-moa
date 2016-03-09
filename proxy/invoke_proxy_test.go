@@ -16,9 +16,9 @@ type DemoResult struct {
 }
 
 type IHello interface {
-	Hello(text string, param DemoParam) DemoResult
-	HelloSlice(text string, arr []string, param DemoParam) DemoResult
-	HelloComplexSlice(text string, arg2 map[string]DemoParam, arr []*DemoParam) DemoResult
+	Hello(text string, param DemoParam) (DemoResult, error)
+	HelloSlice(text string, arr []string, param DemoParam) (DemoResult, error)
+	HelloComplexSlice(text string, arg2 map[string]DemoParam, arr []*DemoParam) (DemoResult, error)
 }
 
 type DemoParam struct {
@@ -28,24 +28,24 @@ type DemoParam struct {
 type Demo struct {
 }
 
-func (self Demo) Hello(text string, param DemoParam) DemoResult {
+func (self Demo) Hello(text string, param DemoParam) (DemoResult, error) {
 	// fmt.Println("----------Hello")
-	return DemoResult{param.Name, text}
+	return DemoResult{param.Name, text}, nil
 }
 
-func (self Demo) HelloSlice(text string, arr []string, param DemoParam) DemoResult {
+func (self Demo) HelloSlice(text string, arr []string, param DemoParam) (DemoResult, error) {
 	// fmt.Println("----------Hello")
-	return DemoResult{param.Name, text}
+	return DemoResult{param.Name, text}, nil
 }
 
-func (self Demo) HelloComplexSlice(text string, arg2 map[string]DemoParam, arr []*DemoParam) DemoResult {
+func (self Demo) HelloComplexSlice(text string, arg2 map[string]DemoParam, arr []*DemoParam) (DemoResult, error) {
 	// fmt.Println("----------Hello")
-	return DemoResult{"test", text}
+	return DemoResult{"test", text}, nil
 }
 
 func TestInvocationHandler(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
-		Instance: Demo{}, Interface: reflect.TypeOf((*IHello)(nil)).Elem()}})
+		Instance: Demo{}, Interface: (*IHello)(nil)}})
 	m, ok := handler.instances["demo"].methods["hello"]
 	if !ok {
 		t.Fail()
@@ -61,7 +61,7 @@ func TestInvocationHandler(t *testing.T) {
 
 func TestInvocationInvoke(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
-		Instance: Demo{}, Interface: reflect.TypeOf((*IHello)(nil)).Elem()}})
+		Instance: Demo{}, Interface: (*IHello)(nil)}})
 	req := protocol.MoaReqPacket{}
 	req.ServiceUri = "demo"
 	req.Params = []interface{}{"fuck", DemoParam{"you"}}
@@ -80,7 +80,7 @@ func TestInvocationInvoke(t *testing.T) {
 
 func TestInvokeHelloSlice(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
-		Instance: Demo{}, Interface: reflect.TypeOf((*IHello)(nil)).Elem()}})
+		Instance: Demo{}, Interface: (*IHello)(nil)}})
 	req := protocol.MoaReqPacket{}
 	req.ServiceUri = "demo"
 	req.Params = []interface{}{"fuck", []string{"a", "b"}, DemoParam{"you"}}
@@ -98,7 +98,7 @@ func TestInvokeHelloSlice(t *testing.T) {
 
 func TestInvokeJsonParams(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
-		Instance: Demo{}, Interface: reflect.TypeOf((*IHello)(nil)).Elem()}})
+		Instance: Demo{}, Interface: (*IHello)(nil)}})
 
 	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"HelloSlice\",\"args\":[\"fuck\",[\"a\", \"b\"],{\"Name\":\"you\"}]}}"
 	var req protocol.CommandRequest
@@ -121,7 +121,7 @@ func TestInvokeJsonParams(t *testing.T) {
 
 func TestComplexSliceJsonParams(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
-		Instance: Demo{}, Interface: reflect.TypeOf((*IHello)(nil)).Elem()}})
+		Instance: Demo{}, Interface: (*IHello)(nil)}})
 
 	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"HelloComplexSlice\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
 	var req protocol.CommandRequest
