@@ -1,54 +1,53 @@
 package lb
 
 import (
-	"strings"
+	// "strings"
+	// "sort"
 	"testing"
+	"time"
 )
 
 func TestZKRegisteService(t *testing.T) {
-	center := NewConfigCenter("zookeeper", "localhost:13000,localhost:13000", "localhost:12000", nil)
+	regAddr := "localhost:2181"
+	registry := NewZookeeper(regAddr)
 
-	succ := center.RegisteService("/service/bibi-profile", "localhost:12000", "redis")
-	if !succ {
-		t.Fail()
+	serviceUri := "/demo"
+	protocol := "redis"
+	hostport := "localhost:18000"
+	flag := registry.RegisteService(serviceUri, hostport, protocol)
+	if !flag {
+		t.Fatalf("RegisteService %s FAIL!", serviceUri)
 	}
+	go func() {
+		for {
+			<-time.After(time.Second * 1)
+			data, err := registry.GetService(serviceUri, protocol)
+			if err != nil {
+				t.Fatalf("GetService FAIL! %s", err.Error())
+			} else {
+				t.Logf("GetService %d-> %s SUCC", len(data), data)
+			}
+		}
+	}()
 
-	hosts, err := center.GetService("/service/bibi-profile", "redis")
-	if nil != err {
-		t.Error(err)
-		t.Fail()
-		return
-	}
-
-	if len(hosts) != 1 {
-		t.Log(hosts)
-		t.Fail()
-		return
-	}
-	if !strings.HasPrefix(hosts[0], "localhost:12000") {
-		t.Log(hosts[0])
-		t.Fail()
-		return
-	}
-
-	succ = center.UnRegisteService("/service/bibi-profile", "localhost:12000", "redis")
-	if !succ {
-		t.Log(succ)
-		t.Fail()
-		return
+	<-time.After(time.Second * 2)
+	flag = registry.UnRegisteService(serviceUri, hostport, protocol)
+	if !flag {
+		t.Fatalf("UnRegisteService %s Fail", serviceUri)
 	}
 
-	hosts, err = center.GetService("/service/bibi-profile", "redis")
-	if nil != err {
-		t.Error(err)
-		t.Fail()
-		return
+	// 模拟多次注册同一个hostport时是否会变更缓存
+	<-time.After(time.Second * 2)
+	flag = registry.RegisteService(serviceUri, hostport, protocol)
+	if !flag {
+		t.Fatalf("RegisteService %s FAIL!", serviceUri)
 	}
 
-	if len(hosts) != 0 {
-		t.Log(hosts)
-		t.Fail()
-		return
+	<-time.After(time.Second * 2)
+	flag = registry.RegisteService(serviceUri, hostport, protocol)
+	if !flag {
+		t.Fatalf("RegisteService %s FAIL!", serviceUri)
 	}
+	<-time.After(time.Second * 2)
 
 }
