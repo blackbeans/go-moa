@@ -21,6 +21,14 @@
         type IGoMoaDemo interface {
             GetDemoName(serviceUri, proto string) (DemoResult, error)
         }
+        //服务实现
+        type GoMoaDemo struct {
+        }
+        
+        func (self GoMoaDemo) GetDemoName(serviceUri, proto string) (DemoResult, error)      {
+            return DemoResult{[]string{"fuck gfw"}, serviceUri}, nil
+        }
+
     ```
 
 * 服务端启动启动：
