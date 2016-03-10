@@ -40,10 +40,12 @@ func NewConfigCenter(registryType string, registryAddr string,
 
 	} else if registryType == REGISTRY_ZOOKEEPER {
 		split := strings.Split(registryAddr, ",")
-		if len(split) > 1 {
-			reg = NewZookeeper(split[0])
-		} else {
-			reg = NewZookeeper(split[0])
+		if len(split) >= 1 {
+			uri := []string{}
+			for _, service := range services {
+				uri = append(uri, service.ServiceUri)
+			}
+			reg = NewZookeeper(split[0], uri)
 		}
 	}
 	center := &ConfigCenter{registry: reg, services: services, hostport: hostport}

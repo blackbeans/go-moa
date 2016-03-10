@@ -6,95 +6,102 @@ import (
 	"github.com/blackbeans/go-zookeeper/zk"
 	log "github.com/blackbeans/log4go"
 	"sort"
-	"strings"
+	// "strings"
 	"sync"
-	"time"
+	// "time"
 )
 
 const (
-	ZK_MOA_ROOT_PATH  = "/go-moa/services"
+	// /moa/service/redis/service/relation-service/localhost:13000?timeout=1000&protocol=redis
+	ZK_MOA_ROOT_PATH  = "/moa/service"
 	ZK_ROOT           = "/"
 	ZK_PATH_DELIMITER = "/"
 )
 
-type zookeeper struct {
-	regAddr    string
-	regCon     *zk.Conn
-	serviceUri string
-	lock       sync.RWMutex
-	uri2Hosts  map[string][]string
+type AddressManager struct {
+	uri2Hosts map[string][]string
+	lock      sync.RWMutex
 }
 
-func NewZookeeper(regAddr string) *zookeeper {
+type zookeeper struct {
+	serviceUri  []string
+	zkManager   *ZKManager
+	addrManager *AddressManager
+}
 
-	regCon, _, err := zk.Connect([]string{regAddr}, 15*time.Second)
-	if err != nil {
-		panic(err)
+func NewZookeeper(regAddr string, uris []string) *zookeeper {
+
+	zkManager := NewZKManager(regAddr)
+	uri2Hosts := make(map[string][]string, 2)
+	addressManager := &AddressManager{uri2Hosts: uri2Hosts}
+
+	zoo := &zookeeper{serviceUri: uris}
+
+	var watcher IWatcher
+	if len(uris) > 0 {
+		// client
+		watcher = NewMoaClientWatcher(addressManager.OnAddressChange, zoo.ReSubZkServer)
+		for _, uri := range uris {
+			flag := zkManager.RegisteWather(uri, watcher)
+			if !flag {
+				log.ErrorLog("config_center", "zookeeper|NewZookeeper|RegisteWather|FAIL|%s", uri)
+			}
+		}
+	} else {
+		// server
+		watcher = MoaServerWatcher{}
+		zkManager.RegisteWather(ZK_MOA_ROOT_PATH, watcher)
 	}
 
-	uri2Hosts := make(map[string][]string, 2)
-	return &zookeeper{
-		regAddr:   regAddr,
-		regCon:    regCon,
-		uri2Hosts: uri2Hosts}
+	zoo.zkManager = zkManager
+	zoo.addrManager = addressManager
+	return zoo
 }
 
 func (self zookeeper) RegisteService(serviceUri, hostport, protoType string) bool {
-	// /go-moa/services/demo_redis/localhost:13000?timeout=1000&protocol=redis
-	servicePath := concat(ZK_MOA_ROOT_PATH, concat(serviceUri, "_", protoType), ZK_PATH_DELIMITER, hostport)
-	err := self.createServiceNode(servicePath)
+	// /moa/service/redis/service/relation-service/localhost:13000?timeout=1000&protocol=redis
+	servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, protoType, serviceUri)
+	svAddrPath := concat(servicePath, ZK_PATH_DELIMITER, hostport)
+
+	conn := self.zkManager.session
+	conn.ChildrenW(servicePath)
+
+	// 创建持久服务节点 /moa/service/redis/service/relation-service
+	exist, _, err := conn.Exists(servicePath)
 	if err != nil {
-		return false
+		conn.Close()
+		panic("无法创建" + servicePath + err.Error())
+	}
+	if !exist {
+		_, err := conn.Create(servicePath, nil, zk.CreatePersistent, zk.WorldACL(zk.PermAll))
+		if err != nil {
+			panic("NewZookeeper|RegisteService|FAIL|" + servicePath + "|" + err.Error())
+		}
+	}
+
+	// 创建临时服务地址节点 /moa/service/redis/service/relation-service/localhost:13000?timeout=1000&protocol=redis
+	exist, _, err = conn.Exists(svAddrPath)
+	if nil != err {
+		conn.Close()
+		panic("无法创建" + svAddrPath + err.Error())
+	}
+	// 先删除，后创建吧。不然zk不通知，就坐等坑爹吧。蛋碎了一地。/(ㄒoㄒ)/~~
+	if exist {
+		conn.Delete(svAddrPath, 0)
+	}
+	_, err = conn.Create(svAddrPath, nil, zk.CreateEphemeral, zk.WorldACL(zk.PermAll))
+	if err != nil {
+		panic("NewZookeeper|RegisteService|FAIL|" + svAddrPath + "|" + err.Error())
 	}
 	log.InfoLog("config_center", "zookeeper|RegisteService|SUCC|%s|%s|%s", hostport, serviceUri, protoType)
 
-	// zookeeper 坐等zk服务端通知即可
-	path := concat(ZK_MOA_ROOT_PATH, concat(serviceUri, "_", PROTOCOL))
-	func() {
-		defer func() {
-			if err := recover(); nil != err {
-
-			}
-		}()
-		//需要监听拉取服务地址
-		self.listenZkNodeChanged(path, serviceUri)
-	}()
 	return true
-
-}
-
-func (self zookeeper) createServiceNode(servicePath string) error {
-	absolutePath := ZK_ROOT
-	conn := self.regCon
-	for _, path := range strings.Split(servicePath, ZK_PATH_DELIMITER) {
-		if len(path) < 1 || path == ZK_ROOT {
-			continue
-		} else {
-			if !strings.HasSuffix(absolutePath, ZK_PATH_DELIMITER) {
-				absolutePath = concat(absolutePath, ZK_PATH_DELIMITER)
-			}
-			absolutePath = concat(absolutePath, path)
-			if flag, _, err := conn.Exists(absolutePath); err != nil {
-				log.ErrorLog("config_center", "zookeeper|RegisteService|SUCC|%s", servicePath)
-				return err
-			} else {
-				if !flag {
-					_, err := conn.Create(absolutePath, []byte{}, 0, zk.WorldACL(zk.PermAll))
-					if err != nil {
-						log.ErrorLog("config_center", "zookeeper|RegisteService|SUCC|%s", servicePath)
-						return err
-					}
-				}
-			}
-		}
-	}
-	return nil
 }
 
 func (self zookeeper) UnRegisteService(serviceUri, hostport, protoType string) bool {
 
-	servicePath := concat(ZK_MOA_ROOT_PATH, concat(serviceUri, "_", protoType), ZK_PATH_DELIMITER, hostport)
-	conn := self.regCon
+	servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, protoType, serviceUri, ZK_PATH_DELIMITER, hostport)
+	conn := self.zkManager.session
 	if flag, _, err := conn.Exists(servicePath); err != nil {
 		log.ErrorLog("config_center", "zookeeper|UnRegisteService|ERROR|%s|%s|%s", serviceUri, hostport, protoType)
 		return false
@@ -112,78 +119,48 @@ func (self zookeeper) UnRegisteService(serviceUri, hostport, protoType string) b
 }
 
 func (self zookeeper) GetService(serviceUri, protoType string) ([]string, error) {
-	data, _ := self.uri2Hosts[serviceUri]
-	if len(data) < 1 {
+	hosts, _ := self.addrManager.uri2Hosts[serviceUri]
+	if len(hosts) < 1 {
 		return nil, errors.New("No Hosts! " + serviceUri + "?protocol=" + protoType)
 	}
-	return data, nil
+	return hosts, nil
 }
 
-func (self zookeeper) listenZkNodeChanged(path, uri string) error {
-	snapshots, errors := self.fetchNodeChildren(path)
-	go func() {
-		for {
-			select {
-			case addrs := <-snapshots:
-				//对比变化
-				func() {
-					defer func() {
-						if r := recover(); nil != r {
-							//do nothing
-						}
-					}()
-					self.lock.Lock()
-					defer self.lock.Unlock()
-					needChange := true
-					sort.Strings(addrs)
-					oldAddrs, ok := self.uri2Hosts[uri]
-					if ok {
-						if len(oldAddrs) > 0 &&
-							len(oldAddrs) == len(addrs) {
-							for j, v := range addrs {
-								//如果是最后一个并且相等那么就应该不需要更新
-								if oldAddrs[j] == v && j == len(addrs)-1 {
-									needChange = false
-									break
-								}
-							}
-						}
-					}
-
-					log.DebugLog("config_center", "zookeeper|listenZkNodeChanged|needChange|%s", needChange)
-					//变化则更新
-					if needChange {
-						self.uri2Hosts[uri] = addrs
-					}
-				}()
-			case err := <-errors:
-				panic(err)
-			}
-		}
-	}()
-	return nil
+//需要重新订阅watcher
+func (self zookeeper) ReSubZkServer() {
+	conn := self.zkManager.session
+	for _, uri := range self.serviceUri {
+		servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
+		conn.ChildrenW(servicePath)
+	}
+	log.InfoLog("config_center", "zookeeper|ReSubZkServer|OK")
 }
 
-// 监听服务节点孩子节点变化
-func (self zookeeper) fetchNodeChildren(path string) (chan []string, chan error) {
-	snapshots := make(chan []string)
-	errors := make(chan error)
-	go func() {
-		for {
-			snapshot, _, events, err := self.regCon.ChildrenW(path)
-			if err != nil {
-				errors <- err
-				return
-			}
-			snapshots <- snapshot
-			evt := <-events
-			if evt.Err != nil {
-				errors <- evt.Err
-				return
+func (self AddressManager) OnAddressChange(uri string, addrs []string) {
+	//对比变化
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	needChange := true
+	sort.Strings(addrs)
+	oldAddrs, ok := self.uri2Hosts[uri]
+	if ok {
+		if len(oldAddrs) > 0 &&
+			len(oldAddrs) == len(addrs) {
+			for j, v := range addrs {
+				//如果是最后一个并且相等那么就应该不需要更新
+				if oldAddrs[j] == v && j == len(addrs)-1 {
+					needChange = false
+					break
+				}
 			}
 		}
-	}()
-	return snapshots, errors
+	}
+	log.DebugLog("config_center", "zookeeper|OnAddressChange|uri|needChange|%s|%s|%s", uri, needChange, self.uri2Hosts)
+	//变化则更新
+	if needChange {
+		self.uri2Hosts[uri] = addrs
+	}
+
 }
 
 // 拼接字符串
@@ -196,5 +173,5 @@ func concat(args ...string) string {
 }
 
 func (self zookeeper) Destroy() {
-
+	self.zkManager.Close()
 }
