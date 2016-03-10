@@ -38,6 +38,7 @@ type Cluster struct {
 	WriteBufferSize   int    //=16 * 1024 //写入缓冲大小
 	WriteChannelSize  int    //=1000 //写异步channel长度
 	ReadChannelSize   int    //=1000 //读异步channel长度
+	LogFile           string //log4go的文件路径
 }
 
 //---------最终需要的Option
@@ -70,7 +71,6 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 	var option Option
 	err = toml.Unmarshal(buff, &option)
 	if nil != err {
-		log.ErrorLog("application", "LoadConfiruation|Parse|FAIL|%s", err)
 		return nil, err
 	}
 
@@ -87,6 +87,8 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 		return nil, errors.New("no cluster config for " + option.Env.RunMode)
 	}
 
+	//加载Log4go
+	log.LoadConfiguration(cluster.LogFile)
 	reg, exist := option.Registry[option.Env.RunMode]
 	if !exist {
 		return nil, errors.New("no reg  for " + option.Env.RunMode + ":" + cluster.Env)
