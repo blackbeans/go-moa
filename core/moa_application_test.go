@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"git.wemomo.com/bibi/go-moa/proxy"
 	"gopkg.in/redis.v3"
-	"reflect"
 	"testing"
 )
 
@@ -55,8 +54,8 @@ func (self Demo) UnregisterService(serviceUri, hostPort, proto string, config ma
 
 func init() {
 	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
-	inter := reflect.TypeOf((*IHello)(nil)).Elem()
-	NewApplcation("../cluster_test.toml", func() []proxy.Service {
+	inter := (*IHello)(nil)
+	NewApplcation("../conf/cluster_test.toml", func() []proxy.Service {
 		return []proxy.Service{
 			proxy.Service{
 				ServiceUri: "/service/lookup",

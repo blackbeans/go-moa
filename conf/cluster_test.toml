@@ -22,6 +22,7 @@ registryType="momokeeper"
 	[clusters.dev]
 		#env=dev/online
 		env="dev" 
+		logFile="../conf/log_moa.xml"
 		processTimeout=5
 		#最大分发处理协程数
 		maxDispatcherSize=8000 
@@ -36,7 +37,8 @@ registryType="momokeeper"
 		
 	[clusters.online]
 		#env=dev/online
-		env="online" 
+		env="online"
+		logFile="../conf/log_moa.xml" 
 		processTimeout=5
 		#最大分发处理协程数
 		maxDispatcherSize=8000 

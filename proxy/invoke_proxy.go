@@ -20,7 +20,7 @@ type MethodMeta struct {
 
 type Service struct {
 	ServiceUri string
-	Interface  reflect.Type
+	Interface  interface{}
 	Instance   interface{}
 	//方法名称反射对应的方法
 	methods map[string]MethodMeta
@@ -37,18 +37,19 @@ func NewInvocationHandler(services []Service) *InvocationHandler {
 	instances := make(map[string]Service, len(services))
 	//对instace进行反射获得方法
 	for _, s := range services {
+		inter := reflect.TypeOf(s.Interface).Elem()
 		rv := reflect.ValueOf(s.Instance)
 		v := reflect.TypeOf(s.Instance)
-		impl := v.Implements(s.Interface)
+		impl := v.Implements(inter)
 		if !impl {
 			panic(fmt.Sprintf("InvocationHandler|Not Implements|%s|%s",
-				v.String(), s.Interface.String()))
+				v.String(), inter.String()))
 		}
-		numMethod := s.Interface.NumMethod()
+		numMethod := inter.NumMethod()
 		s.methods = make(map[string]MethodMeta, numMethod)
 		for i := 0; i < numMethod; i++ {
 			mm := MethodMeta{}
-			m := s.Interface.Method(i)
+			m := inter.Method(i)
 			im := rv.MethodByName(m.Name)
 			mm.Method = im
 			mm.Name = m.Name

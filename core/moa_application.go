@@ -63,6 +63,9 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 }
 
 func (self Application) DestoryApplication() {
+
+	//取消注册服务
+	self.configCenter.Destroy()
 	//关闭remoting
 	self.remoting.Shutdown()
 }
