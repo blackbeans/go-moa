@@ -80,15 +80,10 @@ func (self zookeeper) RegisteService(serviceUri, hostport, protoType string) boo
 	}
 
 	// 创建临时服务地址节点 /moa/service/redis/service/relation-service/localhost:13000?timeout=1000&protocol=redis
-	exist, _, err = conn.Exists(svAddrPath)
-	if nil != err {
-		conn.Close()
-		panic("无法创建" + svAddrPath + err.Error())
-	}
 	// 先删除，后创建吧。不然zk不通知，就坐等坑爹吧。蛋碎了一地。/(ㄒoㄒ)/~~
-	if exist {
-		conn.Delete(svAddrPath, 0)
-	}
+
+	conn.Delete(svAddrPath, 0)
+
 	_, err = conn.Create(svAddrPath, nil, zk.CreateEphemeral, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		panic("NewZookeeper|RegisteService|FAIL|" + svAddrPath + "|" + err.Error())
@@ -119,6 +114,8 @@ func (self zookeeper) UnRegisteService(serviceUri, hostport, protoType string) b
 }
 
 func (self zookeeper) GetService(serviceUri, protoType string) ([]string, error) {
+	self.addrManager.lock.RLock()
+	defer self.addrManager.lock.RUnlock()
 	hosts, _ := self.addrManager.uri2Hosts[serviceUri]
 	if len(hosts) < 1 {
 		return nil, errors.New("No Hosts! " + serviceUri + "?protocol=" + protoType)

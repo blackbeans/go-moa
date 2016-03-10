@@ -111,6 +111,6 @@ func TestZKRegisteService(t *testing.T) {
 	// if !flag {
 	// 	t.Fatalf("RegisteService %s FAIL!", serviceUri)
 	// }
-	<-time.After(time.Second * 600)
+	<-time.After(time.Second * 2)
 
 }
