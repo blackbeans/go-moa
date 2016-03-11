@@ -16,6 +16,8 @@ const (
 	ZK_MOA_ROOT_PATH  = "/moa/service"
 	ZK_ROOT           = "/"
 	ZK_PATH_DELIMITER = "/"
+	CLIENT_SOURCE     = "client"
+	SERVER_SOURCE     = "server"
 )
 
 type AddressManager struct {
@@ -40,7 +42,7 @@ func NewZookeeper(regAddr string, uris []string) *zookeeper {
 	var watcher IWatcher
 	if len(uris) > 0 {
 		// client
-		watcher = NewMoaClientWatcher(addressManager.OnAddressChange, zoo.ReSubZkServer)
+		watcher = NewMoaClientWatcher(addressManager.onAddressChange, zoo.reInitZkeeper)
 		for _, uri := range uris {
 			// 初始化，由于客户端订阅延迟，需要主动监听节点事件，然后主动从zk上拉取一次，放入缓存
 			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
@@ -53,15 +55,15 @@ func NewZookeeper(regAddr string, uris []string) *zookeeper {
 				addressManager.uri2Hosts[uri] = hosts
 			}
 
-			flag := zkManager.RegisteWather(uri, watcher)
+			flag := zkManager.RegisteWatcher(uri, watcher)
 			if !flag {
 				log.ErrorLog("config_center", "zookeeper|NewZookeeper|RegisteWather|FAIL|%s", uri)
 			}
 		}
 	} else {
 		// server
-		watcher = MoaServerWatcher{}
-		zkManager.RegisteWather(ZK_MOA_ROOT_PATH, watcher)
+		watcher = MoaServerWatcher{zoo.reInitZkeeper}
+		zkManager.RegisteWatcher(ZK_MOA_ROOT_PATH, watcher)
 	}
 
 	zoo.zkManager = zkManager
@@ -139,17 +141,37 @@ func (self zookeeper) GetService(serviceUri, protoType string) ([]string, error)
 	return hosts, nil
 }
 
-//需要重新订阅watcher
-func (self zookeeper) ReSubZkServer() {
-	conn := self.zkManager.session
-	for _, uri := range self.serviceUri {
-		servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
-		conn.ChildrenW(servicePath)
+//会话超时时，需要重新订阅/推送watcher
+func (self zookeeper) reInitZkeeper(command string) {
+	if command == CLIENT_SOURCE {
+		// 客户端需要重新订阅
+		conn := self.zkManager.session
+		for _, uri := range self.serviceUri {
+			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
+			conn.ChildrenW(servicePath)
+		}
+		log.InfoLog("config_center", "zookeeper|ReSubZkServer|OK|%s", command)
+	} else if command == SERVER_SOURCE {
+		// 服务端 需要重新推送
+		conn := self.zkManager.session
+		for uri, hosts := range self.addrManager.uri2Hosts {
+			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
+			conn.ChildrenW(servicePath)
+			for _, host := range hosts {
+				svAddrPath := concat(servicePath, ZK_PATH_DELIMITER, host)
+				conn.Delete(svAddrPath, 0)
+				_, err := conn.Create(svAddrPath, nil, zk.CreateEphemeral, zk.WorldACL(zk.PermAll))
+				if err != nil {
+					panic("ReSubZkServer|FAIL|" + svAddrPath + "|" + err.Error())
+				}
+			}
+		}
+		log.InfoLog("config_center", "zookeeper|RePubZkServer|OK|%s", command)
 	}
-	log.InfoLog("config_center", "zookeeper|ReSubZkServer|OK")
 }
 
-func (self AddressManager) OnAddressChange(uri string, addrs []string) {
+// 用户客户端监听服务节点地址发生变化时触发
+func (self AddressManager) onAddressChange(uri string, addrs []string) {
 	//对比变化
 	self.lock.Lock()
 	defer self.lock.Unlock()

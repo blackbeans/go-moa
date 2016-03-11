@@ -10,7 +10,7 @@ import (
 
 type IAddressListener func(uri string, hosts []string)
 
-type IReInitor func()
+type IReInitor func(source string)
 
 type MoaClientWatcher struct {
 	listener  IAddressListener
@@ -22,9 +22,9 @@ func NewMoaClientWatcher(listener IAddressListener, iReInitor IReInitor) *MoaCli
 }
 
 func (self MoaClientWatcher) OnSessionExpired() {
-	log.InfoLog("config_center", "MoaClientWatcher|OnSessionExpired")
+	log.InfoLog("config_center", "MoaClientWatcher|client|OnSessionExpired")
 	// 需要重新拉取并监听服务地址信息，
-	self.iReInitor()
+	self.iReInitor(CLIENT_SOURCE)
 
 }
 func (self MoaClientWatcher) NodeChange(path string, eventType ZkEvent, addrs []string) {
@@ -36,6 +36,7 @@ func (self MoaClientWatcher) NodeChange(path string, eventType ZkEvent, addrs []
 
 // ############## moa server watcher ################
 type MoaServerWatcher struct {
+	iReInitor IReInitor
 }
 
 func NewMoaServerWatcher() *MoaServerWatcher {
@@ -43,7 +44,8 @@ func NewMoaServerWatcher() *MoaServerWatcher {
 }
 
 func (self MoaServerWatcher) OnSessionExpired() {
-	log.InfoLog("config_center", "MoaServerWatcher|OnSessionExpired")
+	log.InfoLog("config_center", "MoaServerWatcher|server|OnSessionExpired")
+	self.iReInitor(SERVER_SOURCE)
 }
 
 func (self MoaServerWatcher) NodeChange(path string, eventType ZkEvent, children []string) {

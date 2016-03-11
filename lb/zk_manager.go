@@ -89,7 +89,7 @@ func (self *ZKManager) CreateNode(conn *zk.Conn, servicePath string) error {
 }
 
 //如果返回false则已经存在
-func (self *ZKManager) RegisteWather(rootpath string, w IWatcher) bool {
+func (self *ZKManager) RegisteWatcher(rootpath string, w IWatcher) bool {
 	_, ok := self.wathcers[rootpath]
 	if ok {
 		return false
