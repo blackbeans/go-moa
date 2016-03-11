@@ -3,6 +3,7 @@ package lb
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"github.com/blackbeans/go-zookeeper/zk"
 	log "github.com/blackbeans/log4go"
 	"regexp"
@@ -53,8 +54,6 @@ func NewZookeeper(regAddr string, uris []string) *zookeeper {
 				sort.Strings(hosts)
 				uri2Hosts[uri] = hosts
 			}
-			//检测节点下的变化
-			zkManager.session.ChildrenW(servicePath)
 		}
 	} else {
 		// server
@@ -124,7 +123,7 @@ func (self zookeeper) GetService(serviceUri, protoType string) ([]string, error)
 	hosts, ok := self.uri2Hosts[serviceUri]
 	if !ok {
 		if len(hosts) < 1 {
-			return nil, errors.New("No Hosts! " + serviceUri + "?protocol=" + protoType)
+			return nil, errors.New(fmt.Sprintf("No Hosts! /moa/service/%s%s", protoType, serviceUri))
 		}
 	}
 	return hosts, nil
