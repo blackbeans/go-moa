@@ -71,7 +71,7 @@ func TestZKRegisteService(t *testing.T) {
 
 	// t.Log("test")
 	regAddr := "localhost:2181"
-	serviceUri := "/demo"
+	serviceUri := "/service/bibi-service"
 	protocol := "redis"
 	hostport := "localhost:18000"
 
@@ -106,11 +106,11 @@ func TestZKRegisteService(t *testing.T) {
 		t.Fatalf("UnRegisteService %s Fail", serviceUri)
 	}
 
-	// <-time.After(time.Second * 2)
-	// flag = registry.RegisteService(serviceUri, hostport, protocol)
-	// if !flag {
-	// 	t.Fatalf("RegisteService %s FAIL!", serviceUri)
-	// }
+	<-time.After(time.Second * 2)
+	flag = registry.RegisteService(serviceUri, hostport, protocol)
+	if !flag {
+		t.Fatalf("RegisteService %s FAIL!", serviceUri)
+	}
 	<-time.After(time.Second * 2)
 
 }

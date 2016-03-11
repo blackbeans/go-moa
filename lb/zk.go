@@ -64,7 +64,6 @@ func (self zookeeper) RegisteService(serviceUri, hostport, protoType string) boo
 	svAddrPath := concat(servicePath, ZK_PATH_DELIMITER, hostport)
 
 	conn := self.zkManager.session
-	conn.ChildrenW(servicePath)
 
 	// 创建持久服务节点 /moa/service/redis/service/relation-service
 	exist, _, err := conn.Exists(servicePath)
@@ -73,17 +72,19 @@ func (self zookeeper) RegisteService(serviceUri, hostport, protoType string) boo
 		panic("无法创建" + servicePath + err.Error())
 	}
 	if !exist {
-		_, err := conn.Create(servicePath, nil, zk.CreatePersistent, zk.WorldACL(zk.PermAll))
+		conn.ExistsW(servicePath)
+		err = self.zkManager.CreateNode(conn, servicePath)
 		if err != nil {
 			panic("NewZookeeper|RegisteService|FAIL|" + servicePath + "|" + err.Error())
 		}
+	} else {
+		conn.ChildrenW(servicePath)
 	}
 
 	// 创建临时服务地址节点 /moa/service/redis/service/relation-service/localhost:13000?timeout=1000&protocol=redis
 	// 先删除，后创建吧。不然zk不通知，就坐等坑爹吧。蛋碎了一地。/(ㄒoㄒ)/~~
 
 	conn.Delete(svAddrPath, 0)
-
 	_, err = conn.Create(svAddrPath, nil, zk.CreateEphemeral, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		panic("NewZookeeper|RegisteService|FAIL|" + svAddrPath + "|" + err.Error())
@@ -114,6 +115,7 @@ func (self zookeeper) UnRegisteService(serviceUri, hostport, protoType string) b
 }
 
 func (self zookeeper) GetService(serviceUri, protoType string) ([]string, error) {
+	log.WarnLog("config_center", "zookeeper|GetService|SUCC|%s|%s|%s", serviceUri, protoType, self.addrManager.uri2Hosts)
 	self.addrManager.lock.RLock()
 	defer self.addrManager.lock.RUnlock()
 	hosts, _ := self.addrManager.uri2Hosts[serviceUri]
@@ -152,11 +154,11 @@ func (self AddressManager) OnAddressChange(uri string, addrs []string) {
 			}
 		}
 	}
-	log.DebugLog("config_center", "zookeeper|OnAddressChange|uri|needChange|%s|%s|%s", uri, needChange, self.uri2Hosts)
 	//变化则更新
 	if needChange {
 		self.uri2Hosts[uri] = addrs
 	}
+	log.WarnLog("config_center", "zookeeper|OnAddressChange|uri|needChange|%s|%s|%s|%s", uri, needChange, self.uri2Hosts, addrs)
 
 }
 

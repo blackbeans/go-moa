@@ -39,10 +39,7 @@ func NewConfigCenter(registryType string, registryAddr string,
 		}
 
 	} else if registryType == REGISTRY_ZOOKEEPER {
-		split := strings.Split(registryAddr, ",")
-		if len(split) >= 1 {
-			reg = NewZookeeper(split[0], []string{})
-		}
+		reg = NewZookeeper(registryAddr, []string{})
 	}
 	center := &ConfigCenter{registry: reg, services: services, hostport: hostport}
 	//如果是momokeeper则定时注册服务
