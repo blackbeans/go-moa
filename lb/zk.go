@@ -41,12 +41,13 @@ func NewZookeeper(regAddr string, uris []string) *zookeeper {
 		// client
 		zoo.serverModel = false
 		for _, uri := range uris {
-			flag := zkManager.RegisteWatcher(uri, zoo)
+
+			// 初始化，由于客户端订阅延迟，需要主动监听节点事件，然后主动从zk上拉取一次，放入缓存
+			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
+			flag := zkManager.RegisteWatcher(servicePath, zoo)
 			if !flag {
 				log.ErrorLog("config_center", "zookeeper|NewZookeeper|RegisteWather|FAIL|%s", uri)
 			}
-			// 初始化，由于客户端订阅延迟，需要主动监听节点事件，然后主动从zk上拉取一次，放入缓存
-			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
 			hosts, _, _, err := zkManager.session.ChildrenW(servicePath)
 			if err != nil {
 				log.ErrorLog("config_center", "zookeeper|NewZookeeper|init uri2hosts|FAIL|%s", uri)

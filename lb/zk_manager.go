@@ -120,7 +120,7 @@ func (self *ZKManager) listenEvent() {
 
 		//如果没有wacher那么久忽略
 		if nil == watcher {
-			log.WarnLog("moa_service", "ZKManager|listenEvent|NO  WATCHER|%s", path)
+			log.WarnLog("moa_service", "ZKManager|listenEvent|NO  WATCHER|path:%s|event:%v", path, change.Type)
 			continue
 		}
 
