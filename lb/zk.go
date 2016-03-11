@@ -42,6 +42,17 @@ func NewZookeeper(regAddr string, uris []string) *zookeeper {
 		// client
 		watcher = NewMoaClientWatcher(addressManager.OnAddressChange, zoo.ReSubZkServer)
 		for _, uri := range uris {
+			// 初始化，由于客户端订阅延迟，需要主动监听节点事件，然后主动从zk上拉取一次，放入缓存
+			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
+			zkManager.session.ChildrenW(servicePath)
+			hosts, _, err := zkManager.session.Children(servicePath)
+			if err != nil {
+				log.ErrorLog("config_center", "zookeeper|NewZookeeper|init uri2hosts|FAIL|%s", uri)
+			} else {
+				sort.Strings(hosts)
+				addressManager.uri2Hosts[uri] = hosts
+			}
+
 			flag := zkManager.RegisteWather(uri, watcher)
 			if !flag {
 				log.ErrorLog("config_center", "zookeeper|NewZookeeper|RegisteWather|FAIL|%s", uri)
@@ -60,6 +71,7 @@ func NewZookeeper(regAddr string, uris []string) *zookeeper {
 
 func (self zookeeper) RegisteService(serviceUri, hostport, protoType string) bool {
 	// /moa/service/redis/service/relation-service/localhost:13000?timeout=1000&protocol=redis
+	// hostport = "localhost:13000" //test
 	servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, protoType, serviceUri)
 	svAddrPath := concat(servicePath, ZK_PATH_DELIMITER, hostport)
 
@@ -115,12 +127,14 @@ func (self zookeeper) UnRegisteService(serviceUri, hostport, protoType string) b
 }
 
 func (self zookeeper) GetService(serviceUri, protoType string) ([]string, error) {
-	log.WarnLog("config_center", "zookeeper|GetService|SUCC|%s|%s|%s", serviceUri, protoType, self.addrManager.uri2Hosts)
+	// log.WarnLog("config_center", "zookeeper|GetService|SUCC|%s|%s|%s", serviceUri, protoType, self.addrManager.uri2Hosts)
 	self.addrManager.lock.RLock()
 	defer self.addrManager.lock.RUnlock()
-	hosts, _ := self.addrManager.uri2Hosts[serviceUri]
-	if len(hosts) < 1 {
-		return nil, errors.New("No Hosts! " + serviceUri + "?protocol=" + protoType)
+	hosts, ok := self.addrManager.uri2Hosts[serviceUri]
+	if !ok {
+		if len(hosts) < 1 {
+			return nil, errors.New("No Hosts! " + serviceUri + "?protocol=" + protoType)
+		}
 	}
 	return hosts, nil
 }
@@ -158,7 +172,7 @@ func (self AddressManager) OnAddressChange(uri string, addrs []string) {
 	if needChange {
 		self.uri2Hosts[uri] = addrs
 	}
-	log.WarnLog("config_center", "zookeeper|OnAddressChange|uri|needChange|%s|%s|%s|%s", uri, needChange, self.uri2Hosts, addrs)
+	// log.WarnLog("config_center", "zookeeper|OnAddressChange|uri|needChange|%s|%s|%s|%s", uri, needChange, self.uri2Hosts, addrs)
 
 }
 

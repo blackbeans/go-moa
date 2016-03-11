@@ -28,7 +28,7 @@ func (self MoaClientWatcher) OnSessionExpired() {
 
 }
 func (self MoaClientWatcher) NodeChange(path string, eventType ZkEvent, addrs []string) {
-	// log.InfoLog("moa_service", "NodeChange|%s|%s|%s", path, eventType, addrs)
+	log.WarnLog("moa_service", "NodeChange|client|%s|%s|%s", path, eventType, addrs)
 	reg, _ := regexp.Compile(`/moa/service/redis([^\s]*)`)
 	uri := reg.FindAllStringSubmatch(path, -1)[0][1]
 	self.listener(uri, addrs)
@@ -47,5 +47,5 @@ func (self MoaServerWatcher) OnSessionExpired() {
 }
 
 func (self MoaServerWatcher) NodeChange(path string, eventType ZkEvent, children []string) {
-	log.InfoLog("moa_service", "NodeChange|%s|%s|%s", path, eventType, children)
+	log.WarnLog("moa_service", "NodeChange|server|%s|%s|%s", path, eventType, children)
 }

@@ -106,7 +106,7 @@ func (self *ZKManager) listenEvent() {
 		//根据zk的文档 Watcher机制是无法保证可靠的，其次需要在每次处理完Watcher后要重新注册Watcher
 		change := <-self.eventChan
 		path := change.Path
-		// log.InfoLog("moa_service", "NewZKManager|listenEvent|path|%s|%s|%s", path, change.State, change.Type)
+		// log.WarnLog("moa_service", "NewZKManager|listenEvent|path|%s|%s|%s", path, change.State, change.Type)
 		//开始检查符合的watcher
 		watcher := func() IWatcher {
 			for k, w := range self.wathcers {
