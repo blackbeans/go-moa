@@ -7,13 +7,13 @@ name="moa-demo"
 runMode="dev"
 bindAddress=":13000"
 #可以是momokeeper或者zookeeper
-registryType="momokeeper" 
-#registryType="zookeeper" 
+#registryType="momokeeper" 
+registryType="zookeeper" 
 
 #registry的管理	
 [registry]
 	[registry.dev]
-		hosts="localhost:13000"
+		hosts="localhost:2181"
 	[registry.online]
 		hosts="vm-bibi-zk-mq001.vm:2181,vm-bibi-zk-mq002.vm:2181,vm-bibi-zk-mq003.vm:2181" 
 
