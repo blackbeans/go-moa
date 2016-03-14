@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"git.wemomo.com/bibi/go-moa/log4moa"
 	"git.wemomo.com/bibi/go-moa/protocol"
 	log "github.com/blackbeans/log4go"
 	"github.com/go-errors/errors"
@@ -28,6 +29,7 @@ type Service struct {
 
 type InvocationHandler struct {
 	instances map[string]Service
+	moaStat   *log4moa.MoaStat
 }
 
 var errorType = reflect.TypeOf(make([]error, 1)).Elem()
@@ -84,27 +86,33 @@ func NewInvocationHandler(services []Service) *InvocationHandler {
 		instances[s.ServiceUri] = s
 		log.InfoLog("moa_handler", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
 	}
-
-	return &InvocationHandler{instances}
+	// init
+	moaStat := log4moa.NewMoaStat()
+	moaStat.StartLog()
+	return &InvocationHandler{instances, moaStat}
 
 }
 
 //执行结果
 func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaRespPacket {
+	self.moaStat.IncreaseRecv()
 	resp := protocol.MoaRespPacket{}
 	//需要对包的内容解析进行反射调用
 	instance, ok := self.instances[packet.ServiceUri]
 	if !ok {
+		self.moaStat.IncreaseError()
 		resp.ErrCode = protocol.CODE_SERVICE_NOT_FOUND
 		resp.Message = fmt.Sprintf(protocol.MSG_NO_URI_FOUND, packet.ServiceUri)
 	} else {
 		m, mok := instance.methods[strings.ToLower(packet.Method)]
 		if !mok {
+			self.moaStat.IncreaseError()
 			resp.ErrCode = protocol.CODE_METHOD_NOT_FOUND
 			resp.Message = fmt.Sprintf(protocol.MSG_METHOD_NOT_FOUND, packet.Method)
 		} else {
 			//参数数量不对应
 			if len(packet.Params) != len(m.ParamTypes) {
+				self.moaStat.IncreaseError()
 				resp.ErrCode = protocol.CODE_SERIALIZATION
 				resp.Message = fmt.Sprintf(protocol.MSG_PARAMS_NOT_MATCHED, len(packet.Params), len(m.ParamTypes))
 			} else {
@@ -140,6 +148,7 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 				}
 
 				if resp.ErrCode != 0 && resp.ErrCode != protocol.CODE_SERVER_SUCC {
+					self.moaStat.IncreaseError()
 					return resp
 				}
 				errChan := make(chan error, 1)
@@ -169,9 +178,11 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 				select {
 				case result := <-r:
 					if nil == result {
+						self.moaStat.IncreaseError()
 						resp.ErrCode = protocol.CODE_INVOCATION_TARGET
 						resp.Message = fmt.Sprintf("NO Result ...")
 					} else {
+						self.moaStat.IncreaseProc()
 						resp.ErrCode = protocol.CODE_SERVER_SUCC
 						resp.Result = result[0].Interface()
 						//则肯定会有error
@@ -181,10 +192,12 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 
 					}
 				case err := <-errChan:
+					self.moaStat.IncreaseError()
 					resp.ErrCode = protocol.CODE_INVOCATION_TARGET
 					resp.Message = fmt.Sprintf("Invoke FAIL %s", err)
 
 				case <-time.After(packet.Timeout):
+					self.moaStat.IncreaseError()
 					resp.ErrCode = protocol.CODE_TIMEOUT_SERVER
 					resp.Message = fmt.Sprintf(protocol.MSG_TIMEOUT, packet.ServiceUri+"#"+packet.Method)
 				}
