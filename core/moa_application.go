@@ -1,16 +1,17 @@
 package core
 
 import (
+	"fmt"
+	"git.wemomo.com/bibi/go-moa/lb"
+	"git.wemomo.com/bibi/go-moa/log4moa"
+	"git.wemomo.com/bibi/go-moa/protocol"
+	"git.wemomo.com/bibi/go-moa/proxy"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 	"github.com/blackbeans/turbo/client"
 	"github.com/blackbeans/turbo/codec"
 	"github.com/blackbeans/turbo/packet"
 	"github.com/blackbeans/turbo/server"
-
-	"git.wemomo.com/bibi/go-moa/lb"
-	"git.wemomo.com/bibi/go-moa/protocol"
-	"git.wemomo.com/bibi/go-moa/proxy"
 )
 
 type ServiceBundle func() []proxy.Service
@@ -50,12 +51,22 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 	app := &Application{}
 	app.options = options
 	app.configCenter = configCenter
-	app.invokeHandler = proxy.NewInvocationHandler(services)
+	//moastat
+	moaStat := log4moa.NewMoaStat(func() string {
+		s := app.remoting.NetworkStat()
+		return fmt.Sprintf("R:%dKB/%d\tW:%dKB/%d\tGo:%d\tCONN:%d", s.ReadBytes/1024,
+			s.ReadCount,
+			s.WriteBytes/1024, s.WriteCount, s.DispatcherGo, s.Connections)
+
+	})
+
+	app.invokeHandler = proxy.NewInvocationHandler(services, moaStat)
+
 	//启动remoting
 	remoting := server.NewRemotionServerWithCodec(options.hostport, rc, cf, app.packetDispatcher)
 	app.remoting = remoting
-
 	remoting.ListenAndServer()
+	moaStat.StartLog()
 	//注册服务
 	configCenter.RegisteAllServices()
 	log.InfoLog("moa-server", "Application|Start|SUCC|%s", name)

@@ -34,7 +34,7 @@ type InvocationHandler struct {
 
 var errorType = reflect.TypeOf(make([]error, 1)).Elem()
 
-func NewInvocationHandler(services []Service) *InvocationHandler {
+func NewInvocationHandler(services []Service, moaStat *log4moa.MoaStat) *InvocationHandler {
 
 	instances := make(map[string]Service, len(services))
 	//对instace进行反射获得方法
@@ -86,9 +86,7 @@ func NewInvocationHandler(services []Service) *InvocationHandler {
 		instances[s.ServiceUri] = s
 		log.InfoLog("moa_handler", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
 	}
-	// init
-	moaStat := log4moa.NewMoaStat()
-	moaStat.StartLog()
+
 	return &InvocationHandler{instances, moaStat}
 
 }

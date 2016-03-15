@@ -6,7 +6,9 @@ import (
 )
 
 func TestPrint(t *testing.T) {
-	moaStat := NewMoaStat()
+	moaStat := NewMoaStat(func() string {
+		return ""
+	})
 	// start a timer to log
 	moaStat.StartLog()
 	go func() {

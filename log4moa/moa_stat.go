@@ -4,7 +4,6 @@ import (
 	"fmt"
 	log "github.com/blackbeans/log4go"
 	"github.com/go-errors/errors"
-	"runtime"
 	"sync/atomic"
 	"time"
 )
@@ -20,6 +19,7 @@ type MoaStat struct {
 	Proc       int64
 	Error      int64
 	RotateSize int32
+	network    func() string
 	MoaTicker  *time.Ticker
 }
 
@@ -28,12 +28,13 @@ type MoaLog interface {
 	Destory()
 }
 
-func NewMoaStat() *MoaStat {
+func NewMoaStat(network func() string) *MoaStat {
 	moaStat := &MoaStat{
 		Recv:       0,
 		Proc:       0,
 		Error:      0,
-		RotateSize: 0}
+		RotateSize: 0,
+		network:    network}
 	return moaStat
 }
 
@@ -58,16 +59,18 @@ func (self *MoaStat) StartLog() {
 			}
 
 		}()
-		log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tGOROUTINE")
-		for t := range ticker.C {
+		log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tNetWork")
+		for {
+			<-ticker.C
 			if self.RotateSize == MAX_ROTATE_SIZE {
-				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tGOROUTINE")
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d", self.Recv, self.Proc, self.Error, runtime.NumGoroutine())
-				fmt.Println("no usage", t) //no usage
+				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tNetWork")
+				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%s",
+					self.Recv, self.Proc, self.Error, self.network())
 				// self.RotateSize = 0
 				atomic.StoreInt32(&self.RotateSize, 0)
 			} else {
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d", self.Recv, self.Proc, self.Error, runtime.NumGoroutine())
+				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%s",
+					self.Recv, self.Proc, self.Error, self.network())
 				// self.RotateSize++
 				atomic.AddInt32(&self.RotateSize, 1)
 			}
