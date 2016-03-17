@@ -20,10 +20,11 @@ type HostPort struct {
 //配置信息
 type Option struct {
 	Env struct {
-		Name         string
-		RunMode      string
-		BindAddress  string
-		RegistryType string
+		Name             string
+		RunMode          string
+		BindAddress      string
+		RegistryType     string
+		ServiceUriSuffix string
 	}
 
 	//使用的环境
@@ -57,6 +58,7 @@ type MOAOption struct {
 	writeChannelSize  int           //=1000 //写异步channel长度
 	readChannelSize   int           //=1000 //读异步channel长度
 	idleDuration      time.Duration //=60s //连接空闲时间
+	serviceUriSuffix  string        //serviceUri后缀
 }
 
 func LoadConfiruation(path string) (*MOAOption, error) {
@@ -118,6 +120,9 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 
 	}
 
+	if len(option.Env.ServiceUriSuffix) <= 0 {
+		option.Env.ServiceUriSuffix = ""
+	}
 	//------------寻找匹配的网卡IP段，进行匹配
 	split := strings.Split(option.Env.BindAddress, ":")
 	regx := split[0]
@@ -153,6 +158,7 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 	//拼装为可用的MOA参数
 	mop := &MOAOption{}
 	mop.name = option.Env.Name
+	mop.serviceUriSuffix = option.Env.ServiceUriSuffix
 	mop.hostport = option.Env.BindAddress
 	mop.registryType = option.Env.RegistryType
 	mop.registryHosts = reg.Hosts

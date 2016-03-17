@@ -25,10 +25,18 @@ type Application struct {
 
 func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 	services := bundle()
+
 	options, err := LoadConfiruation(configPath)
 	if nil != err {
 		panic(err)
 	}
+
+	//修正serviceUri的后缀
+	for i, s := range services {
+		s.ServiceUri = (s.ServiceUri + options.serviceUriSuffix)
+		services[i] = s
+	}
+
 	name := options.name + "/" + options.hostport
 	rc := turbo.NewRemotingConfig(name,
 		options.maxDispatcherSize,
