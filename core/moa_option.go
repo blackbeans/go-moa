@@ -79,14 +79,6 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 		return nil, err
 	}
 
-	//若没有使用设置启动模式默认dev
-	runMode := flag.String("runMode", "dev", "-runMode=dev/online")
-	flag.Parse()
-	if nil == runMode || *runMode != "online" {
-		*runMode = "dev"
-	}
-	option.Env.RunMode = *runMode
-
 	cluster, ok := option.Clusters[option.Env.RunMode]
 	if !ok {
 		return nil, errors.New("no cluster config for " + option.Env.RunMode)
