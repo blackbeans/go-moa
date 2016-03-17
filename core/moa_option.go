@@ -2,7 +2,6 @@ package core
 
 import (
 	"errors"
-	"flag"
 	log "github.com/blackbeans/log4go"
 	"github.com/naoina/toml"
 	"io/ioutil"
