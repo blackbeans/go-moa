@@ -140,8 +140,44 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 							}
 						}
 					} else {
-						resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
-						resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, "Unsupport ParamType "+vl.Kind().String())
+						if vl.Type().Kind() == reflect.Float32 || vl.Type().Kind() == reflect.Float64 {
+							var val float64
+							v, ok := arg.(float32)
+							if !ok {
+								val = arg.(float64)
+							} else {
+								val = float64(v)
+							}
+
+							switch f.Kind() {
+							case reflect.Int8:
+								params = append(params, reflect.ValueOf(int8(val)))
+							case reflect.Int:
+								params = append(params, reflect.ValueOf(int(val)))
+							case reflect.Int16:
+								params = append(params, reflect.ValueOf(int16(val)))
+							case reflect.Int32:
+								params = append(params, reflect.ValueOf(int32(val)))
+							case reflect.Int64:
+								params = append(params, reflect.ValueOf(int64(val)))
+							case reflect.Uint8:
+								params = append(params, reflect.ValueOf(uint8(val)))
+							case reflect.Uint:
+								params = append(params, reflect.ValueOf(uint(val)))
+							case reflect.Uint16:
+								params = append(params, reflect.ValueOf(uint16(val)))
+							case reflect.Uint32:
+								params = append(params, reflect.ValueOf(uint32(val)))
+							case reflect.Uint64:
+								params = append(params, reflect.ValueOf(uint64(val)))
+							default:
+								resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
+								resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, "Unsupport ParamType "+vl.Kind().String())
+							}
+						} else {
+							resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
+							resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, "Unsupport ParamType "+vl.Kind().String())
+						}
 					}
 				}
 
