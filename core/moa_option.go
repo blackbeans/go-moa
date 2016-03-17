@@ -6,7 +6,10 @@ import (
 	log "github.com/blackbeans/log4go"
 	"github.com/naoina/toml"
 	"io/ioutil"
+	"net"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -113,6 +116,33 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 	if cluster.ReadChannelSize <= 0 {
 		cluster.ReadChannelSize = 1000 //读异步channel长度
 
+	}
+
+	//------------寻找匹配的网卡IP段，进行匹配
+	split := strings.Split(option.Env.BindAddress, ":")
+	regx := split[0]
+
+	addrs, err := net.InterfaceAddrs()
+	if nil != err {
+		panic(err)
+	} else {
+		hasMatched := false
+		for _, addr := range addrs {
+			if ip, ok := addr.(*net.IPNet); ok && !ip.IP.IsLoopback() {
+				if nil != ip.IP.To4() {
+					match, _ := regexp.MatchString(regx, ip.IP.To4().String())
+					if match {
+						option.Env.BindAddress = ip.IP.To4().String() + ":" + split[1]
+						hasMatched = true
+						break
+					}
+				}
+			}
+		}
+		//没有匹配的IP直接用0.0.0.0的IP绑定
+		if !hasMatched {
+			option.Env.BindAddress = "0.0.0.0:" + split[1]
+		}
 	}
 
 	//拼装为可用的MOA参数

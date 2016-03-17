@@ -5,7 +5,7 @@
 [env]
 name="moa-demo"
 runMode="dev"
-bindAddress=":13000"
+bindAddress="/^10\.83\.\d+\.\d+$/:13000"
 #可以是momokeeper或者zookeeper
 registryType="momokeeper" 
 #registryType="zookeeper" 
