@@ -127,14 +127,19 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 		panic(err)
 	} else {
 		hasMatched := false
-		for _, addr := range addrs {
-			if ip, ok := addr.(*net.IPNet); ok && !ip.IP.IsLoopback() {
-				if nil != ip.IP.To4() {
-					match, _ := regexp.MatchString(regx, ip.IP.To4().String())
-					if match {
-						option.Env.BindAddress = ip.IP.To4().String() + ":" + split[1]
-						hasMatched = true
-						break
+		//如果没有IP匹配表达式则用默认的
+		if len(regx) <= 0 {
+			option.Env.BindAddress = "0.0.0.0:" + split[1]
+		} else {
+			for _, addr := range addrs {
+				if ip, ok := addr.(*net.IPNet); ok && !ip.IP.IsLoopback() {
+					if nil != ip.IP.To4() {
+						match, _ := regexp.MatchString(regx, ip.IP.To4().String())
+						if match {
+							option.Env.BindAddress = ip.IP.To4().String() + ":" + split[1]
+							hasMatched = true
+							break
+						}
 					}
 				}
 			}

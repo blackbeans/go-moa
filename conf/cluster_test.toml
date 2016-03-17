@@ -5,7 +5,8 @@
 [env]
 name="moa-demo"
 runMode="dev"
-bindAddress="/^10\.83\.\d+\.\d+$/:13000"
+#可以指定正则表达式也可以直接:13000默认使用0.0.0.0的IP(不建议)
+bindAddress="^10\\.83\\.\\d+\\.\\d+$:13000"
 #可以是momokeeper或者zookeeper
 registryType="momokeeper" 
 #registryType="zookeeper" 
