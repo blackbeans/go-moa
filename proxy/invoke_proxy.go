@@ -84,7 +84,7 @@ func NewInvocationHandler(services []Service, moaStat *log4moa.MoaStat) *Invocat
 			s.methods[strings.ToLower(m.Name)] = mm
 		}
 		instances[s.ServiceUri] = s
-		log.InfoLog("moa_handler", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
+		log.InfoLog("moa-server", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
 	}
 
 	return &InvocationHandler{instances, moaStat}
@@ -200,7 +200,7 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 							}
 
 							//TODO LOG ERROR
-							log.ErrorLog("moa_handler", "InvocationHandler|Invoke|Call|FAIL|%s|%s|%s|%s",
+							log.ErrorLog("moa-server", "InvocationHandler|Invoke|Call|FAIL|%s|%s|%s|%s",
 								e, packet.ServiceUri, m.Name, params)
 							resp.Message = fmt.Sprintf(protocol.MSG_INVOCATION_TARGET, err)
 							errChan <- e

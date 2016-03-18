@@ -82,6 +82,8 @@ func TestApplication(t *testing.T) {
 	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"GetService\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
 	val, _ := client.Get(cmd).Result()
 	t.Log(val)
+	pong, err := client.Ping().Result()
+	t.Logf("pong:%s,err:%s\n", pong, err)
 
 }
 

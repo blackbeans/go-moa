@@ -97,22 +97,30 @@ func (self Application) packetDispatcher(remoteClient *client.RemotingClient, p 
 			log.ErrorLog("moa-server", "Application|packetDispatcher|FAIL|%s", err)
 		}
 	}()
-
-	//这里面根据解析包的内容得到调用不同的service获得结果
-	req, err := protocol.Wrap2MoaRequest(p.Data)
-	if nil != err {
-		log.ErrorLog("moa-server", "Application|packetDispatcher|Wrap2MoaRequest|FAIL|%s|%s", err, string(p.Data))
-	} else {
-
-		req.Timeout = self.options.processTimeout
-		result := self.invokeHandler.Invoke(*req)
-		resp, err := protocol.Wrap2ResponsePacket(p, result)
+	//如果是get命令
+	if p.Header.CmdType == protocol.GET {
+		//这里面根据解析包的内容得到调用不同的service获得结果
+		req, err := protocol.Wrap2MoaRequest(p.Data)
 		if nil != err {
-			log.ErrorLog("moa-server", "Application|packetDispatcher|Wrap2ResponsePacket|FAIL|%s|%s", err, result)
+			log.ErrorLog("moa-server", "Application|packetDispatcher|Wrap2MoaRequest|FAIL|%s|%s", err, string(p.Data))
 		} else {
-			remoteClient.Write(*resp)
-			//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
+
+			req.Timeout = self.options.processTimeout
+			result := self.invokeHandler.Invoke(*req)
+			resp, err := protocol.Wrap2ResponsePacket(p, result)
+			if nil != err {
+				log.ErrorLog("moa-server", "Application|packetDispatcher|Wrap2ResponsePacket|FAIL|%s|%s", err, result)
+			} else {
+				remoteClient.Write(*resp)
+				//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
+			}
+
 		}
 
+	} else if p.Header.CmdType == protocol.PING {
+		//PING 协议 不做人事事情
+		resp, _ := protocol.Wrap2ResponsePacket(p, "PONG")
+		remoteClient.Write(*resp)
 	}
+
 }
