@@ -6,6 +6,7 @@ import (
 	b "encoding/binary"
 	// "errors"
 	"fmt"
+	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo/packet"
 	"github.com/go-errors/errors"
 	"strconv"
@@ -30,9 +31,9 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			er, ok := err.(*errors.Error)
 			if ok {
 				stack := er.ErrorStack()
-				fmt.Println(stack)
+				log.ErrorLog("moa-server", "RedisGetCodec|Read|ERROR|%s", stack)
 			} else {
-				fmt.Println(err)
+				log.ErrorLog("moa-server", "RedisGetCodec|Read|ERROR|%v", er)
 			}
 		}
 
