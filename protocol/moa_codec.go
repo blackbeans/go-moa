@@ -39,7 +39,7 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 	}()
 	line, isPrefix, err := reader.ReadLine()
 	if nil != err {
-		return nil, errors.New("Read Packet Err " + err.Error())
+		return nil, errors.New("Read Command Args Count Packet Err " + err.Error())
 	}
 	//*1\r\n$4\r\nPING\r\n
 	//*2\r\n$3\r\nGET\r\n${0}\r\n{"method":"","service-uri":""}\r\n
@@ -57,7 +57,7 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			for {
 				line, isPrefix, err = reader.ReadLine()
 				if nil != err {
-					return nil, errors.New("Read Packet Err " + err.Error())
+					return nil, errors.New("Read Command Len Packet Err " + err.Error())
 				}
 
 				//没有读取完这个命令的字节继续读取
@@ -86,7 +86,7 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			for {
 				line, isPrefix, err = reader.ReadLine()
 				if nil != err {
-					return nil, errors.New("Read Packet Err " + err.Error())
+					return nil, errors.New("Read Command Data Packet Err " + err.Error())
 				}
 
 				//如果超过了给定的长度则忽略
