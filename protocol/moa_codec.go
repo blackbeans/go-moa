@@ -91,7 +91,8 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 
 				//如果超过了给定的长度则忽略
 				if (dl + len(line)) > length {
-					return nil, errors.New(fmt.Sprintf("Invalid Packet Data %d/%d/%d ", i, (dl + len(line)), length))
+					return nil, errors.New(fmt.Sprintf("Invalid Packet Data %d:[%d/%d]\t%s ",
+						i, (dl + len(line)), length, string(line)))
 				}
 				//没有读取完这个命令的字节继续读取
 				l, er := dataBuff.Write(line)
