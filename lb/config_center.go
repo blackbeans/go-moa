@@ -46,7 +46,7 @@ func NewConfigCenter(registryType string, registryAddr string,
 	if registryType == REGISTRY_MOMOKEEPER {
 		go func() {
 			for {
-				time.Sleep(5 * time.Minute)
+				time.Sleep(5 * time.Second)
 				func() {
 					defer func() {
 						if err := recover(); nil != err {
