@@ -4,8 +4,8 @@
     - 因为使用了私有仓库因此必须使用 —insecure参数
     
     ```
-    go get -insecure git.wemomo.com/bibi/go-moa/core
-    go get -insecure git.wemomo.com/bibi/go-moa/proxy
+    go get -insecure github.com/blackbeans/go-moa/core
+    go get -insecure github.com/blackbeans/go-moa/proxy
     ```
 
 * 定义服务的接口对应
@@ -59,5 +59,5 @@
     - Service为一个服务单元，对应了本服务对外的服务名称、以及对应的接口
 
     - Applcation需要对应的Moa的配置文件，toml类型，具体配置参见./conf/cluster_test.toml
-* 发布服务成功可以使用客户端进行测试，具体[客户端的使用请参考](git.wemomo.com/bibi/go-moa-client/blob/master/README.md)
+* 发布服务成功可以使用客户端进行测试，具体[客户端的使用请参考](github.com/blackbeans/go-moa-client/blob/master/README.md)
 

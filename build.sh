@@ -4,15 +4,15 @@ go get github.com/blackbeans/log4go
 go get gopkg.in/redis.v3 	
 go get github.com/go-errors/errors
 
-go build git.wemomo.com/bibi/go-moa/core
-go build git.wemomo.com/bibi/go-moa/lb
-go build git.wemomo.com/bibi/go-moa/proxy
-go build git.wemomo.com/bibi/go-moa/protocol
-go build git.wemomo.com/bibi/go-moa/log4moa
+go build github.com/blackbeans/go-moa/core
+go build github.com/blackbeans/go-moa/lb
+go build github.com/blackbeans/go-moa/proxy
+go build github.com/blackbeans/go-moa/protocol
+go build github.com/blackbeans/go-moa/log4moa
 
 
-go install git.wemomo.com/bibi/go-moa/core
-go install git.wemomo.com/bibi/go-moa/lb
-go install git.wemomo.com/bibi/go-moa/proxy
-go install git.wemomo.com/bibi/go-moa/protocol
-go install git.wemomo.com/bibi/go-moa/log4moa
+go install github.com/blackbeans/go-moa/core
+go install github.com/blackbeans/go-moa/lb
+go install github.com/blackbeans/go-moa/proxy
+go install github.com/blackbeans/go-moa/protocol
+go install github.com/blackbeans/go-moa/log4moa

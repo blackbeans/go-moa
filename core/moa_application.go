@@ -2,10 +2,10 @@ package core
 
 import (
 	"fmt"
-	"git.wemomo.com/bibi/go-moa/lb"
-	"git.wemomo.com/bibi/go-moa/log4moa"
-	"git.wemomo.com/bibi/go-moa/protocol"
-	"git.wemomo.com/bibi/go-moa/proxy"
+	"github.com/blackbeans/go-moa/lb"
+	"github.com/blackbeans/go-moa/log4moa"
+	"github.com/blackbeans/go-moa/protocol"
+	"github.com/blackbeans/go-moa/proxy"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 	"github.com/blackbeans/turbo/client"
