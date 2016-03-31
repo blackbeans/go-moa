@@ -50,7 +50,15 @@ func Wrap2MoaRequest(data []byte) (*MoaReqPacket, error) {
 }
 
 func Wrap2ResponsePacket(p *packet.Packet, resp interface{}) (*packet.Packet, error) {
-	data, err := json.Marshal(resp)
+	v, ok := resp.(string)
+	var data []byte
+	var err error = nil
+	if ok {
+		data = []byte(v)
+	} else {
+		data, err = json.Marshal(resp)
+	}
+
 	respPacket := packet.NewRespPacket(p.Header.Opaque, p.Header.CmdType, data)
 	return respPacket, err
 }

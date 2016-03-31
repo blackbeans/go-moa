@@ -38,9 +38,10 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 		}
 
 	}()
+
 	line, isPrefix, err := reader.ReadLine()
 	if nil != err {
-		return nil, errors.New("Read Command Args Count Packet Err " + err.Error())
+		return nil, errors.New("RedisGetCodec Read Command Args Count Packet Err " + err.Error())
 	}
 	//*1\r\n$4\r\nPING\r\n
 	//*2\r\n$3\r\nGET\r\n${0}\r\n{"method":"","service-uri":""}\r\n
@@ -58,13 +59,13 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			for {
 				line, isPrefix, err = reader.ReadLine()
 				if nil != err {
-					return nil, errors.New("Read Command Len Packet Err " + err.Error())
+					return nil, errors.New("RedisGetCodec Read Command Len Packet Err " + err.Error())
 				}
 
 				//没有读取完这个命令的字节继续读取
 				_, er := tmp.Write(line[1:])
 				if nil != err {
-					return nil, errors.New("Write Packet Into Buff  Err " + er.Error())
+					return nil, errors.New("RedisGetCodec Write Packet Into Buff  Err " + er.Error())
 				}
 				//读取完这个命令的字节
 				if !isPrefix {
@@ -78,27 +79,28 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			l, _ := strconv.ParseInt(tmp.String(), 10, 64)
 			length := int(l)
 			if length >= self.MaxFrameLength {
-				return nil, errors.New(fmt.Sprintf("Too Large Packet %d/%d", length, self.MaxFrameLength))
+				return nil, errors.New(fmt.Sprintf("RedisGetCodec Too Large Packet %d/%d", length, self.MaxFrameLength))
 			}
-			//+4B+1B 是为了给将长度协议类型附加在dataBuff的末尾
+			//bodyLen+body+CommandType
+			//4B+body+1B 是为了给将长度协议类型附加在dataBuff的末尾
 			dataBuff := bytes.NewBuffer(make([]byte, 0, 4+length+1))
 			b.Write(dataBuff, b.BigEndian, int32(length))
 			dl := 0
 			for {
 				line, isPrefix, err = reader.ReadLine()
 				if nil != err {
-					return nil, errors.New("Read Command Data Packet Err " + err.Error())
+					return nil, errors.New("RedisGetCodec Read Command Data Packet Err " + err.Error())
 				}
 
 				//如果超过了给定的长度则忽略
 				if (dl + len(line)) > length {
-					return nil, errors.New(fmt.Sprintf("Invalid Packet Data %d:[%d/%d]\t%s ",
+					return nil, errors.New(fmt.Sprintf("RedisGetCodec Invalid Packet Data %d:[%d/%d]\t%s ",
 						i, (dl + len(line)), length, string(line)))
 				}
 				//没有读取完这个命令的字节继续读取
 				l, er := dataBuff.Write(line)
 				if nil != err {
-					return nil, errors.New("Write Packet Into Buff  Err " + er.Error())
+					return nil, errors.New("RedisGetCodec Write Packet Into Buff  Err " + er.Error())
 				}
 				//读取完这个命令的字节
 				if !isPrefix {
@@ -126,7 +128,7 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 		//得到了get和Ping数据将数据返回出去
 		return params[ac-1], nil
 	} else {
-		return nil, errors.New("Error Packet Prototol Is Not Get " + string(line))
+		return nil, errors.New("RedisGetCodec Error Packet Prototol Is Not Get " + string(line))
 	}
 }
 
