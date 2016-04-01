@@ -54,6 +54,8 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 		params := make([]*bytes.Buffer, 0, ac)
 		for i := 0; i < ac; i++ {
 
+			//去掉第一个字符'+'或者'*'或者'$'
+			reader.Discard(1)
 			//读取数组长度和对应的值
 			tmp := bytes.NewBuffer(make([]byte, 0, 32))
 			for {
@@ -63,8 +65,8 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 				}
 
 				//没有读取完这个命令的字节继续读取
-				_, er := tmp.Write(line[1:])
-				if nil != err {
+				_, er := tmp.Write(line)
+				if nil != er {
 					return nil, errors.New("RedisGetCodec Write Packet Into Buff  Err " + er.Error())
 				}
 				//读取完这个命令的字节
@@ -78,8 +80,8 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			//获取到数据的长度，读取数据
 			l, _ := strconv.ParseInt(tmp.String(), 10, 64)
 			length := int(l)
-			if length >= self.MaxFrameLength {
-				return nil, errors.New(fmt.Sprintf("RedisGetCodec Too Large Packet %d/%d", length, self.MaxFrameLength))
+			if length <= 0 || length >= self.MaxFrameLength {
+				return nil, errors.New(fmt.Sprintf("RedisGetCodec Err Packet Len %d/%d", length, self.MaxFrameLength))
 			}
 			//bodyLen+body+CommandType
 			//4B+body+1B 是为了给将长度协议类型附加在dataBuff的末尾
@@ -114,6 +116,7 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 
 		}
 
+		//去掉长度4个字节
 		cmdType := strings.ToUpper(string(params[0].Bytes()[4:]))
 		//获取协议的类型
 		switch cmdType {
@@ -121,10 +124,10 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			params[ac-1].WriteByte(PING)
 		case "GET":
 			params[ac-1].WriteByte(GET)
+
 		default:
 			params[ac-1].WriteByte(PADDING)
 		}
-
 		//得到了get和Ping数据将数据返回出去
 		return params[ac-1], nil
 	} else {
@@ -137,8 +140,9 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 func (self RedisGetCodec) UnmarshalPacket(buff *bytes.Buffer) (*packet.Packet, error) {
 	var l int32
 	b.Read(buff, b.BigEndian, &l)
-	d := buff.Bytes()
-	return packet.NewPacket(d[l], d[:l]), nil
+	data := buff.Next(int(l))
+	cmdType, _ := buff.ReadByte()
+	return packet.NewPacket(cmdType, data), nil
 }
 
 var ERROR = []byte("-Error message\r\n")

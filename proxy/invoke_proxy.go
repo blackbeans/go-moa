@@ -6,6 +6,7 @@ import (
 	"github.com/blackbeans/go-moa/log4moa"
 	"github.com/blackbeans/go-moa/protocol"
 	log "github.com/blackbeans/log4go"
+	"github.com/blackbeans/turbo"
 	"github.com/go-errors/errors"
 	"reflect"
 	"strings"
@@ -30,6 +31,7 @@ type Service struct {
 type InvocationHandler struct {
 	instances map[string]Service
 	moaStat   *log4moa.MoaStat
+	tw        *turbo.TimeWheel
 }
 
 var errorType = reflect.TypeOf(make([]error, 1)).Elem()
@@ -86,8 +88,8 @@ func NewInvocationHandler(services []Service, moaStat *log4moa.MoaStat) *Invocat
 		instances[s.ServiceUri] = s
 		log.InfoLog("moa-server", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
 	}
-
-	return &InvocationHandler{instances, moaStat}
+	tw := turbo.NewTimeWheel(1*time.Second, 10, 10)
+	return &InvocationHandler{instances, moaStat, tw}
 
 }
 
@@ -185,9 +187,10 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 					self.moaStat.IncreaseError()
 					return resp
 				}
-				errChan := make(chan error, 1)
-				r := make(chan []reflect.Value, 1)
+				// errChan := make(chan error, 1)
+				ch := make(chan *invokeResult, 1)
 				go func() {
+					ir := &invokeResult{}
 					defer func() {
 						if err := recover(); nil != err {
 							var e error
@@ -203,41 +206,50 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 							log.ErrorLog("moa-server", "InvocationHandler|Invoke|Call|FAIL|%s|%s|%s|%s",
 								e, packet.ServiceUri, m.Name, params)
 							resp.Message = fmt.Sprintf(protocol.MSG_INVOCATION_TARGET, err)
-							errChan <- e
+							ir.err = er
+							ch <- ir
 						}
 					}()
-					r <- m.Method.Call(params)
+					ir.values = m.Method.Call(params)
+					ch <- ir
 				}()
 
+				timerId, timeout := self.tw.After(packet.Timeout, func() {})
 				select {
-				case result := <-r:
-					if nil == result {
+				case result := <-ch:
+					values := result.values
+					if nil != result.err {
+						self.moaStat.IncreaseError()
+						resp.ErrCode = protocol.CODE_INVOCATION_TARGET
+						resp.Message = fmt.Sprintf("Invoke FAIL %s", result.err)
+					} else if nil == values {
 						self.moaStat.IncreaseError()
 						resp.ErrCode = protocol.CODE_INVOCATION_TARGET
 						resp.Message = fmt.Sprintf("NO Result ...")
 					} else {
 						self.moaStat.IncreaseProc()
 						resp.ErrCode = protocol.CODE_SERVER_SUCC
-						resp.Result = result[0].Interface()
+						resp.Result = values[0].Interface()
 						//则肯定会有error
-						if len(result) > 1 {
-							resp.Message = fmt.Sprintf("%v", result[1].Interface())
+						if len(values) > 1 {
+							resp.Message = fmt.Sprintf("%v", values[1].Interface())
 						}
 
 					}
-				case err := <-errChan:
-					self.moaStat.IncreaseError()
-					resp.ErrCode = protocol.CODE_INVOCATION_TARGET
-					resp.Message = fmt.Sprintf("Invoke FAIL %s", err)
-
-				case <-time.After(packet.Timeout):
+				case <-timeout:
 					self.moaStat.IncreaseError()
 					resp.ErrCode = protocol.CODE_TIMEOUT_SERVER
 					resp.Message = fmt.Sprintf(protocol.MSG_TIMEOUT, packet.ServiceUri+"#"+packet.Method)
 				}
+				self.tw.Remove(timerId)
 			}
 		}
 	}
 
 	return resp
+}
+
+type invokeResult struct {
+	err    interface{}
+	values []reflect.Value
 }

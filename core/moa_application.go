@@ -12,6 +12,9 @@ import (
 	"github.com/blackbeans/turbo/codec"
 	"github.com/blackbeans/turbo/packet"
 	"github.com/blackbeans/turbo/server"
+	"net"
+	"net/http"
+	_ "net/http/pprof"
 )
 
 type ServiceBundle func() []proxy.Service
@@ -75,6 +78,15 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 	app.remoting = remoting
 	remoting.ListenAndServer()
 	moaStat.StartLog()
+
+	//------------启动pprof
+	go func() {
+		hp, _ := net.ResolveTCPAddr("tcp4", options.hostport)
+		pprof := fmt.Sprintf("%s:%d", hp.IP, (hp.Port + 1000))
+		log.ErrorLog("moa-server", http.ListenAndServe(pprof, nil))
+
+	}()
+
 	//注册服务
 	configCenter.RegisteAllServices()
 	log.InfoLog("moa-server", "Application|Start|SUCC|%s", name)
