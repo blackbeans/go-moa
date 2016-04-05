@@ -1,8 +1,9 @@
 package protocol
 
 import (
-	"encoding/json"
+	_ "encoding/json"
 	"github.com/blackbeans/turbo/packet"
+	"github.com/pquerna/ffjson/ffjson"
 	"time"
 )
 
@@ -39,7 +40,7 @@ func Command2MoaRequest(cr CommandRequest) MoaReqPacket {
 
 func Wrap2MoaRequest(data []byte) (*MoaReqPacket, error) {
 	var req CommandRequest
-	err := json.Unmarshal(data, &req)
+	err := ffjson.Unmarshal(data, &req)
 	if nil != err {
 		return nil, err
 	} else {
@@ -56,7 +57,7 @@ func Wrap2ResponsePacket(p *packet.Packet, resp interface{}) (*packet.Packet, er
 	if ok {
 		data = []byte(v)
 	} else {
-		data, err = json.Marshal(resp)
+		data, err = ffjson.Marshal(resp)
 	}
 
 	respPacket := packet.NewRespPacket(p.Header.Opaque, p.Header.CmdType, data)

@@ -1,13 +1,14 @@
 package proxy
 
 import (
-	"encoding/json"
+	_ "encoding/json"
 	"fmt"
 	"github.com/blackbeans/go-moa/log4moa"
 	"github.com/blackbeans/go-moa/protocol"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 	"github.com/go-errors/errors"
+	"github.com/pquerna/ffjson/ffjson"
 	"reflect"
 	"strings"
 	"time"
@@ -127,13 +128,13 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 					} else if vl.Kind() == reflect.Map ||
 						vl.Kind() == reflect.Slice {
 						//可能是对象类型则需要序列化为该对象
-						data, err := json.Marshal(arg)
+						data, err := ffjson.Marshal(arg)
 						if nil != err {
 							resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
 							resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, err)
 						} else {
 							inst := reflect.New(f)
-							uerr := json.Unmarshal(data, inst.Interface())
+							uerr := ffjson.Unmarshal(data, inst.Interface())
 							if nil != uerr {
 								resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
 								resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, uerr)
