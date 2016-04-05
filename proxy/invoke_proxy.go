@@ -188,7 +188,7 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 					return resp
 				}
 				// errChan := make(chan error, 1)
-				ch := make(chan *invokeResult, 1)
+				// ch := make(chan *invokeResult, 1)
 				go func() {
 					ir := &invokeResult{}
 					defer func() {
@@ -207,16 +207,16 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 								e, packet.ServiceUri, m.Name, params)
 							resp.Message = fmt.Sprintf(protocol.MSG_INVOCATION_TARGET, err)
 							ir.err = er
-							ch <- ir
+							packet.Channel <- ir
 						}
 					}()
 					ir.values = m.Method.Call(params)
-					ch <- ir
+					packet.Channel <- ir
 				}()
-
 				timerId, timeout := self.tw.After(packet.Timeout, func() {})
 				select {
-				case result := <-ch:
+				case r := <-packet.Channel:
+					result := r.(*invokeResult)
 					values := result.values
 					if nil != result.err {
 						self.moaStat.IncreaseError()

@@ -16,10 +16,11 @@ type CommandRequest struct {
 
 //moa请求协议的包
 type MoaReqPacket struct {
-	ServiceUri string        `json:"action"`
-	Method     string        `json:"m"`
-	Params     []interface{} `json:"args"`
-	Timeout    time.Duration `json:"-"`
+	ServiceUri string           `json:"action"`
+	Method     string           `json:"m"`
+	Params     []interface{}    `json:"args"`
+	Timeout    time.Duration    `json:"-"`
+	Channel    chan interface{} `json:"-"`
 }
 
 //moa响应packet

@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"sync"
 )
 
 type ServiceBundle func() []proxy.Service
@@ -24,6 +25,8 @@ type Application struct {
 	invokeHandler *proxy.InvocationHandler
 	options       *MOAOption
 	configCenter  *lb.ConfigCenter
+	linkChannels  map[string]chan interface{}
+	lock          sync.RWMutex
 }
 
 func NewApplcation(configPath string, bundle ServiceBundle) *Application {
@@ -62,6 +65,7 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 	app := &Application{}
 	app.options = options
 	app.configCenter = configCenter
+	app.linkChannels = make(map[string]chan interface{}, 1000)
 	//moastat
 	moaStat := log4moa.NewMoaStat(func() string {
 		s := app.remoting.NetworkStat()
@@ -109,6 +113,7 @@ func (self Application) packetDispatcher(remoteClient *client.RemotingClient, p 
 			log.ErrorLog("moa-server", "Application|packetDispatcher|FAIL|%s", err)
 		}
 	}()
+
 	//如果是get命令
 	if p.Header.CmdType == protocol.GET {
 		//这里面根据解析包的内容得到调用不同的service获得结果
@@ -116,7 +121,22 @@ func (self Application) packetDispatcher(remoteClient *client.RemotingClient, p 
 		if nil != err {
 			log.ErrorLog("moa-server", "Application|packetDispatcher|Wrap2MoaRequest|FAIL|%s|%s", err, string(p.Data))
 		} else {
+			var channel chan interface{}
+			exist := false
+			func() {
+				//fill channel
+				self.lock.RLock()
+				defer self.lock.RUnlock()
+				ch, ok := self.linkChannels[remoteClient.RemoteAddr()]
+				if !ok {
+					channel = make(chan interface{}, 10)
+				} else {
+					channel = ch
+					exist = true
+				}
+			}()
 
+			req.Channel = channel
 			req.Timeout = self.options.processTimeout
 			result := self.invokeHandler.Invoke(*req)
 			resp, err := protocol.Wrap2ResponsePacket(p, result)
@@ -126,7 +146,13 @@ func (self Application) packetDispatcher(remoteClient *client.RemotingClient, p 
 				remoteClient.Write(*resp)
 				//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
 			}
-
+			func() {
+				if !exist {
+					self.lock.Lock()
+					defer self.lock.Unlock()
+					self.linkChannels[remoteClient.RemoteAddr()] = channel
+				}
+			}()
 		}
 
 	} else if p.Header.CmdType == protocol.PING {
