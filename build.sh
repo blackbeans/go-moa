@@ -3,7 +3,6 @@ go get github.com/blackbeans/turbo
 go get github.com/blackbeans/log4go
 go get gopkg.in/redis.v3 	
 go get github.com/go-errors/errors
-go get github.com/pquerna/ffjson
 
 go build github.com/blackbeans/go-moa/core
 go build github.com/blackbeans/go-moa/lb
