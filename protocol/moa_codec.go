@@ -60,29 +60,14 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 		for i := 0; i < ac; i++ {
 			//去掉第一个字符'+'或者'*'或者'$'
 			reader.Discard(1)
-			//读取数组长度和对应的值
-			tmp := bytes.NewBuffer(make([]byte, 0, 32))
-			for {
-				line, isPrefix, err := reader.ReadLine()
-				if nil != err {
-					return nil, errors.New("RedisGetCodec Read Command Len Packet Err " + err.Error())
-				}
 
-				//没有读取完这个命令的字节继续读取
-				_, er := tmp.Write(line)
-				if nil != er {
-					return nil, errors.New("RedisGetCodec Write Packet Into Buff  Err " + er.Error())
-				}
-				//读取完这个命令的字节
-				if !isPrefix {
-					break
-				} else {
-
-				}
+			line, err := reader.ReadSlice('\n')
+			if nil != err {
+				return nil, errors.New("RedisGetCodec Read Command Len Packet Err " + err.Error())
 			}
-
+			end := bytes.IndexByte(line, '\r')
 			//获取到数据的长度，读取数据
-			length, _ := strconv.Atoi(tmp.String())
+			length, _ := strconv.Atoi(string(line[:end]))
 			if length <= 0 || length >= self.MaxFrameLength {
 				return nil, errors.New(fmt.Sprintf("RedisGetCodec Err Packet Len %d/%d", length, self.MaxFrameLength))
 			}
