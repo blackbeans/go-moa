@@ -115,9 +115,10 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			params = append(params, dataBuff)
 
 		}
-
+		//跳过4个字节
+		params[0].Next(4)
 		//去掉长度4个字节
-		cmdType := strings.ToUpper(string(params[0].Bytes()[4:]))
+		cmdType := strings.ToUpper(params[0].String())
 		//获取协议的类型
 		switch cmdType {
 		case "PING":
