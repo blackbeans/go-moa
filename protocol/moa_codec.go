@@ -10,13 +10,20 @@ import (
 	"github.com/blackbeans/turbo/packet"
 	"github.com/go-errors/errors"
 	"strconv"
-	"strings"
 )
 
+var BYTES_PING []byte
+var BYTES_GET []byte
+
+func init() {
+	BYTES_PING = []byte("PING")
+	BYTES_GET = []byte("GET")
+}
+
 const (
-	PADDING = 0x00
-	GET     = 0x01
-	PING    = 0x02
+	PADDING = byte(0x00)
+	GET     = byte(0x01)
+	PING    = byte(0x02)
 )
 
 type RedisGetCodec struct {
@@ -39,27 +46,24 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 
 	}()
 
-	line, isPrefix, err := reader.ReadLine()
+	line, _, err := reader.ReadLine()
 	if nil != err {
 		return nil, errors.New("RedisGetCodec Read Command Args Count Packet Err " + err.Error())
 	}
 	//*1\r\n$4\r\nPING\r\n
 	//*2\r\n$3\r\nGET\r\n${0}\r\n{"method":"","service-uri":""}\r\n
-	start := bytes.HasPrefix(line, []byte{'*'})
-	if start {
-		argsCount, _ := strconv.ParseInt(string(line[1:len(line)]), 10, 64)
-		ac := int(argsCount)
-
+	if line[0] == '*' {
+		//略过\r\n
+		ac, _ := strconv.Atoi(string(line[1:]))
 		//获取到共有多少个\r\n
-		params := make([]*bytes.Buffer, 0, ac)
+		params := make([][]byte, 0, ac)
 		for i := 0; i < ac; i++ {
-
 			//去掉第一个字符'+'或者'*'或者'$'
 			reader.Discard(1)
 			//读取数组长度和对应的值
 			tmp := bytes.NewBuffer(make([]byte, 0, 32))
 			for {
-				line, isPrefix, err = reader.ReadLine()
+				line, isPrefix, err := reader.ReadLine()
 				if nil != err {
 					return nil, errors.New("RedisGetCodec Read Command Len Packet Err " + err.Error())
 				}
@@ -78,59 +82,47 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			}
 
 			//获取到数据的长度，读取数据
-			l, _ := strconv.ParseInt(tmp.String(), 10, 64)
-			length := int(l)
+			length, _ := strconv.Atoi(tmp.String())
 			if length <= 0 || length >= self.MaxFrameLength {
 				return nil, errors.New(fmt.Sprintf("RedisGetCodec Err Packet Len %d/%d", length, self.MaxFrameLength))
 			}
+
 			//bodyLen+body+CommandType
 			//4B+body+1B 是为了给将长度协议类型附加在dataBuff的末尾
-			dataBuff := bytes.NewBuffer(make([]byte, 0, 4+length+1))
-			b.Write(dataBuff, b.BigEndian, int32(length))
+			buff := make([]byte, 4+length+1)
+			b.BigEndian.PutUint32(buff[0:4], uint32(length))
 			dl := 0
 			for {
-				line, isPrefix, err = reader.ReadLine()
+
+				l, err := reader.Read(buff[dl+4 : 4+length])
 				if nil != err {
 					return nil, errors.New("RedisGetCodec Read Command Data Packet Err " + err.Error())
 				}
 
-				//如果超过了给定的长度则忽略
-				if (dl + len(line)) > length {
-					return nil, errors.New(fmt.Sprintf("RedisGetCodec Invalid Packet Data %d:[%d/%d]\t%s ",
-						i, (dl + len(line)), length, string(line)))
-				}
-				//没有读取完这个命令的字节继续读取
-				l, er := dataBuff.Write(line)
-				if nil != err {
-					return nil, errors.New("RedisGetCodec Write Packet Into Buff  Err " + er.Error())
-				}
-				//读取完这个命令的字节
-				if !isPrefix {
-					break
-				} else {
-
-				}
 				dl += l
+				//如果超过了给定的长度则忽略
+				if dl > length {
+					return nil, errors.New(fmt.Sprintf("RedisGetCodec Invalid Packet Data %d:[%d/%d]\t%s ",
+						i, dl, length, string(buff[4:dl])))
+				} else if dl == length {
+					//略过\r\n
+					break
+				}
 			}
-			params = append(params, dataBuff)
-
+			reader.Discard(2)
+			params = append(params, buff)
 		}
-		//跳过4个字节
-		params[0].Next(4)
-		//去掉长度4个字节
-		cmdType := strings.ToUpper(params[0].String())
-		//获取协议的类型
-		switch cmdType {
-		case "PING":
-			params[ac-1].WriteByte(PING)
-		case "GET":
-			params[ac-1].WriteByte(GET)
 
-		default:
-			params[ac-1].WriteByte(PADDING)
+		cmdType := bytes.ToUpper(params[0][4 : len(params[0])-1])
+		flag := PADDING
+		if bytes.Equal(BYTES_PING, cmdType) {
+			flag = PING
+		} else if bytes.Equal(BYTES_GET, cmdType) {
+			flag = GET
 		}
+		params[ac-1][len(params[ac-1])-1] = flag
 		//得到了get和Ping数据将数据返回出去
-		return params[ac-1], nil
+		return bytes.NewBuffer(params[ac-1]), nil
 	} else {
 		return nil, errors.New("RedisGetCodec Error Packet Prototol Is Not Get " + string(line))
 	}
@@ -139,10 +131,11 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 //反序列化
 //包装为packet，但是头部没有信息
 func (self RedisGetCodec) UnmarshalPacket(buff *bytes.Buffer) (*packet.Packet, error) {
-	var l int32
-	b.Read(buff, b.BigEndian, &l)
-	data := buff.Next(int(l))
-	cmdType, _ := buff.ReadByte()
+
+	buf := buff.Bytes()
+	l := int(b.BigEndian.Uint32(buf[0:4]))
+	data := buf[4 : 4+l]
+	cmdType := buf[len(buf)-1]
 	return packet.NewPacket(cmdType, data), nil
 }
 
