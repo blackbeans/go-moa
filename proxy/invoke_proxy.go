@@ -94,9 +94,9 @@ func NewInvocationHandler(services []Service, moaStat *log4moa.MoaStat) *Invocat
 }
 
 //执行结果
-func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaRespPacket {
+func (self InvocationHandler) Invoke(packet *protocol.MoaRawReqPacket) *protocol.MoaRespPacket {
 	self.moaStat.IncreaseRecv()
-	resp := protocol.MoaRespPacket{}
+	resp := &protocol.MoaRespPacket{}
 	//需要对包的内容解析进行反射调用
 	instance, ok := self.instances[packet.ServiceUri]
 	if !ok {
@@ -104,82 +104,30 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 		resp.ErrCode = protocol.CODE_SERVICE_NOT_FOUND
 		resp.Message = fmt.Sprintf(protocol.MSG_NO_URI_FOUND, packet.ServiceUri)
 	} else {
-		m, mok := instance.methods[strings.ToLower(packet.Method)]
+		m, mok := instance.methods[strings.ToLower(packet.Params.Method)]
 		if !mok {
 			self.moaStat.IncreaseError()
 			resp.ErrCode = protocol.CODE_METHOD_NOT_FOUND
-			resp.Message = fmt.Sprintf(protocol.MSG_METHOD_NOT_FOUND, packet.Method)
+			resp.Message = fmt.Sprintf(protocol.MSG_METHOD_NOT_FOUND, packet.Params.Method)
 		} else {
 			//参数数量不对应
-			if len(packet.Params) != len(m.ParamTypes) {
+			if len(packet.Params.Args) != len(m.ParamTypes) {
 				self.moaStat.IncreaseError()
 				resp.ErrCode = protocol.CODE_SERIALIZATION
-				resp.Message = fmt.Sprintf(protocol.MSG_PARAMS_NOT_MATCHED, len(packet.Params), len(m.ParamTypes))
+				resp.Message = fmt.Sprintf(protocol.MSG_PARAMS_NOT_MATCHED,
+					len(packet.Params.Args), len(m.ParamTypes))
 			} else {
 				params := make([]reflect.Value, 0, len(m.ParamTypes))
 				//参数数量OK逐个转换为reflect.Value类型
 				for i, f := range m.ParamTypes {
-					arg := packet.Params[i]
-					vl := reflect.ValueOf(arg)
-					//类型相等应该就是原则类型了吧、不是数组并且两个类型一样
-					if vl.Type() == f {
-						params = append(params, vl)
-					} else if vl.Kind() == reflect.Map ||
-						vl.Kind() == reflect.Slice {
-						//可能是对象类型则需要序列化为该对象
-						data, err := json.Marshal(arg)
-						if nil != err {
-							resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
-							resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, err)
-						} else {
-							inst := reflect.New(f)
-							uerr := json.Unmarshal(data, inst.Interface())
-							if nil != uerr {
-								resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
-								resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, uerr)
-							} else {
-								params = append(params, inst.Elem())
-							}
-						}
+					arg := packet.Params.Args[i]
+					inst := reflect.New(f)
+					uerr := json.Unmarshal(arg, inst.Interface())
+					if nil != uerr {
+						resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
+						resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, uerr)
 					} else {
-						if vl.Type().Kind() == reflect.Float32 || vl.Type().Kind() == reflect.Float64 {
-							var val float64
-							v, ok := arg.(float32)
-							if !ok {
-								val = arg.(float64)
-							} else {
-								val = float64(v)
-							}
-
-							switch f.Kind() {
-							case reflect.Int8:
-								params = append(params, reflect.ValueOf(int8(val)))
-							case reflect.Int:
-								params = append(params, reflect.ValueOf(int(val)))
-							case reflect.Int16:
-								params = append(params, reflect.ValueOf(int16(val)))
-							case reflect.Int32:
-								params = append(params, reflect.ValueOf(int32(val)))
-							case reflect.Int64:
-								params = append(params, reflect.ValueOf(int64(val)))
-							case reflect.Uint8:
-								params = append(params, reflect.ValueOf(uint8(val)))
-							case reflect.Uint:
-								params = append(params, reflect.ValueOf(uint(val)))
-							case reflect.Uint16:
-								params = append(params, reflect.ValueOf(uint16(val)))
-							case reflect.Uint32:
-								params = append(params, reflect.ValueOf(uint32(val)))
-							case reflect.Uint64:
-								params = append(params, reflect.ValueOf(uint64(val)))
-							default:
-								resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
-								resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, "Unsupport ParamType "+vl.Kind().String())
-							}
-						} else {
-							resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
-							resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, "Unsupport ParamType "+vl.Kind().String())
-						}
+						params = append(params, inst.Elem())
 					}
 				}
 
@@ -239,7 +187,8 @@ func (self InvocationHandler) Invoke(packet protocol.MoaReqPacket) protocol.MoaR
 				case <-timeout:
 					self.moaStat.IncreaseError()
 					resp.ErrCode = protocol.CODE_TIMEOUT_SERVER
-					resp.Message = fmt.Sprintf(protocol.MSG_TIMEOUT, packet.ServiceUri+"#"+packet.Method)
+					resp.Message = fmt.Sprintf(protocol.MSG_TIMEOUT,
+						packet.ServiceUri+"#"+packet.Params.Method)
 				}
 				self.tw.Remove(timerId)
 			}

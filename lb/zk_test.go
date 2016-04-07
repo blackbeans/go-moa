@@ -20,7 +20,7 @@ func TestZKRegisteService(t *testing.T) {
 		t.Fatalf("RegisteService %s FAIL!", serviceUri)
 	}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 	data, err := registry.GetService(serviceUri, protocol)
 	if err != nil {
 		t.Fail()

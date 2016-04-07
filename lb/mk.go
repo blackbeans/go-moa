@@ -53,7 +53,7 @@ type RegisterResp struct {
 }
 
 func (self momokeeper) RegisteService(serviceUri, hostport, protoType string) bool {
-	cmd := protocol.CommandRequest{}
+	cmd := &protocol.MoaReqPacket{}
 	cmd.ServiceUri = MK_SERVICE_URI
 	cmd.Params.Method = MK_REG_METHOD
 	args := make([]interface{}, 0, 3)
@@ -73,8 +73,8 @@ func (self momokeeper) RegisteService(serviceUri, hostport, protoType string) bo
 
 }
 
-func (self momokeeper) invokeResponse(c *redis.Client, method string, cmd protocol.CommandRequest) (interface{}, error) {
-	data, _ := json.Marshal(cmd)
+func (self momokeeper) invokeResponse(c *redis.Client, method string, req *protocol.MoaReqPacket) (interface{}, error) {
+	data, _ := json.Marshal(req)
 	val, err := c.Get(string(data)).Result()
 
 	if nil != err {
@@ -98,7 +98,7 @@ func (self momokeeper) invokeResponse(c *redis.Client, method string, cmd protoc
 }
 
 func (self momokeeper) UnRegisteService(serviceUri, hostport, protoType string) bool {
-	cmd := protocol.CommandRequest{}
+	cmd := &protocol.MoaReqPacket{}
 	cmd.ServiceUri = MK_SERVICE_URI
 	cmd.Params.Method = MK_UNREG_METHOD
 	args := make([]interface{}, 0, 3)
@@ -119,7 +119,7 @@ func (self momokeeper) UnRegisteService(serviceUri, hostport, protoType string) 
 }
 
 func (self momokeeper) GetService(serviceUri, protoType string) ([]string, error) {
-	cmd := protocol.CommandRequest{}
+	cmd := &protocol.MoaReqPacket{}
 	cmd.ServiceUri = MK_LOOKUP
 	cmd.Params.Method = MK_GET_METHOD
 	args := make([]interface{}, 0, 3)

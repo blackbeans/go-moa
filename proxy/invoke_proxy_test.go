@@ -63,12 +63,13 @@ func TestInvocationHandler(t *testing.T) {
 func TestInvocationInvoke(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: Demo{}, Interface: (*IHello)(nil)}}, log4moa.NewMoaStat(func() string { return "" }))
-	req := protocol.MoaReqPacket{}
+	req := &protocol.MoaReqPacket{}
 	req.ServiceUri = "demo"
-	req.Params = []interface{}{"fuck", DemoParam{"you"}}
-	req.Method = "Hello"
+	req.Channel = make(chan interface{}, 10)
+	req.Params.Args = []interface{}{"fuck", DemoParam{"you"}}
+	req.Params.Method = "Hello"
 	req.Timeout = 5 * time.Second
-	resp := handler.Invoke(req)
+	resp := handler.Invoke(protocol.MoaRequest2Raw(req))
 	t.Logf("TestInvocationInvoke|Invoke|%s\n", resp.Result)
 	if resp.ErrCode != 200 && resp.ErrCode != 0 {
 		t.Fail()
@@ -82,12 +83,13 @@ func TestInvocationInvoke(t *testing.T) {
 func TestInvokeHelloSlice(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: Demo{}, Interface: (*IHello)(nil)}}, log4moa.NewMoaStat(func() string { return "" }))
-	req := protocol.MoaReqPacket{}
+	req := &protocol.MoaReqPacket{}
+	req.Channel = make(chan interface{}, 10)
 	req.ServiceUri = "demo"
-	req.Params = []interface{}{"fuck", []string{"a", "b"}, DemoParam{"you"}}
-	req.Method = "HelloSlice"
+	req.Params.Args = []interface{}{"fuck", []string{"a", "b"}, DemoParam{"you"}}
+	req.Params.Method = "HelloSlice"
 	req.Timeout = 5 * time.Second
-	resp := handler.Invoke(req)
+	resp := handler.Invoke(protocol.MoaRequest2Raw(req))
 	t.Logf("TestInvokeHelloSlice|Invoke|%s\n", resp.Result)
 	if resp.ErrCode != 200 && resp.ErrCode != 0 {
 		t.Fail()
@@ -102,15 +104,15 @@ func TestInvokeJsonParams(t *testing.T) {
 		Instance: Demo{}, Interface: (*IHello)(nil)}}, log4moa.NewMoaStat(func() string { return "" }))
 
 	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"HelloSlice\",\"args\":[\"fuck\",[\"a\", \"b\"],{\"Name\":\"you\"}]}}"
-	var req protocol.CommandRequest
+	var req protocol.MoaRawReqPacket
 	err := json.Unmarshal([]byte(cmd), &req)
 	if nil != err {
 		t.Error(err)
 	}
 	t.Log(req)
-	moaReq := protocol.Command2MoaRequest(req)
-	moaReq.Timeout = 5 * time.Second
-	resp := handler.Invoke(moaReq)
+	req.Channel = make(chan interface{}, 10)
+	req.Timeout = 5 * time.Second
+	resp := handler.Invoke(&req)
 	t.Logf("TestInvokeHelloSlice|Invoke|%s\n", resp.Result)
 	if resp.ErrCode != 200 && resp.ErrCode != 0 {
 		t.Fail()
@@ -125,15 +127,16 @@ func TestComplexSliceJsonParams(t *testing.T) {
 		Instance: Demo{}, Interface: (*IHello)(nil)}}, log4moa.NewMoaStat(func() string { return "" }))
 
 	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"HelloComplexSlice\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
-	var req protocol.CommandRequest
+	var req protocol.MoaRawReqPacket
 	err := json.Unmarshal([]byte(cmd), &req)
 	if nil != err {
 		t.Error(err)
 	}
+
 	t.Log(req)
-	moaReq := protocol.Command2MoaRequest(req)
-	moaReq.Timeout = 5 * time.Second
-	resp := handler.Invoke(moaReq)
+	req.Channel = make(chan interface{}, 10)
+	req.Timeout = 5 * time.Second
+	resp := handler.Invoke(&req)
 	t.Logf("TestInvokeHelloSlice|Invoke|%s\n", resp)
 	if resp.ErrCode != 200 && resp.ErrCode != 0 {
 		t.Fail()

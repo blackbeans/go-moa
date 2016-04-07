@@ -113,14 +113,14 @@ func (self Application) packetDispatcher(remoteClient *client.RemotingClient, p 
 	//如果是get命令
 	if p.Header.CmdType == protocol.GET {
 		//这里面根据解析包的内容得到调用不同的service获得结果
-		req, err := protocol.Wrap2MoaRequest(p.Data)
+		req, err := protocol.Wrap2MoaRawRequest(p.Data)
 		if nil != err {
 			log.ErrorLog("moa-server", "Application|packetDispatcher|Wrap2MoaRequest|FAIL|%s|%s", err, string(p.Data))
 		} else {
 
 			req.Channel = remoteClient.AttachChannel
 			req.Timeout = self.options.processTimeout
-			result := self.invokeHandler.Invoke(*req)
+			result := self.invokeHandler.Invoke(req)
 			resp, err := protocol.Wrap2ResponsePacket(p, result)
 			if nil != err {
 				log.ErrorLog("moa-server", "Application|packetDispatcher|Wrap2ResponsePacket|FAIL|%s|%s", err, result)
