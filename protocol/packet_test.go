@@ -3,7 +3,6 @@ package protocol
 import (
 	_ "bytes"
 	"encoding/json"
-	_ "github.com/pquerna/ffjson/ffjson"
 	"reflect"
 	"testing"
 )
