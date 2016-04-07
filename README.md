@@ -1,11 +1,13 @@
 #### MOA Server使用方式
 
 * 安装：
-    - 因为使用了私有仓库因此必须使用 —insecure参数
+    
+    安装ZooKeeper
+    $Zookeeper/bin/zkServer.sh start
     
     ```
-    go get -insecure github.com/blackbeans/go-moa/core
-    go get -insecure github.com/blackbeans/go-moa/proxy
+    go get  github.com/blackbeans/go-moa/core
+    go get  github.com/blackbeans/go-moa/proxy
     ```
 
 * 定义服务的接口对应
@@ -60,4 +62,12 @@
 
     - Applcation需要对应的Moa的配置文件，toml类型，具体配置参见./conf/cluster_test.toml
 * 发布服务成功可以使用客户端进行测试，具体[客户端的使用请参考](http://github.com/blackbeans/go-moa-client/blob/master/README.md)
+
+*** Benchmark
+
+    env:Macbook Pro 2.2 GHz Intel Core i7
+
+    go test --bench=".*" github.com/blackbeans/go-moa/core -run=BenchmarkApplication
+
+    BenchmarkApplication-8     20000         64517 ns/op
 

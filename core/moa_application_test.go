@@ -88,17 +88,17 @@ func TestApplication(t *testing.T) {
 }
 
 func BenchmarkApplication(t *testing.B) {
-
+	t.StopTimer()
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:13000",
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
 	defer client.Close()
-
+	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"GetService\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
+	t.StartTimer()
 	for i := 0; i < t.N; i++ {
-		cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"GetService\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
-		client.Get(cmd).Result()
+		client.Get(cmd)
 	}
 
 }
