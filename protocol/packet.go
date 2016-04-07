@@ -3,6 +3,7 @@ package protocol
 import (
 	"encoding/json"
 	"github.com/blackbeans/turbo/packet"
+	"github.com/pquerna/ffjson/ffjson"
 	"time"
 )
 
@@ -48,7 +49,7 @@ func MoaRequest2Raw(req *MoaReqPacket) *MoaRawReqPacket {
 	raw.Params.Method = req.Params.Method
 	rawArgs := make([]json.RawMessage, 0, len(req.Params.Args))
 	for _, a := range req.Params.Args {
-		rw, _ := json.Marshal(a)
+		rw, _ := ffjson.Marshal(a)
 		rawArgs = append(rawArgs, json.RawMessage(rw))
 	}
 
@@ -60,7 +61,7 @@ func MoaRequest2Raw(req *MoaReqPacket) *MoaRawReqPacket {
 
 func Wrap2MoaRawRequest(data []byte) (*MoaRawReqPacket, error) {
 	var req MoaRawReqPacket
-	err := json.Unmarshal(data, &req)
+	err := ffjson.Unmarshal(data, &req)
 	if nil != err {
 		return nil, err
 	} else {
@@ -77,7 +78,7 @@ func Wrap2ResponsePacket(p *packet.Packet, resp interface{}) (*packet.Packet, er
 	if ok {
 		data = []byte(v)
 	} else {
-		data, err = json.Marshal(resp)
+		data, err = ffjson.Marshal(resp)
 	}
 
 	respPacket := packet.NewRespPacket(p.Header.Opaque, p.Header.CmdType, data)
@@ -88,7 +89,7 @@ func MoaRsponse2Raw(resp *MoaRespPacket) *MoaRawRespPacket {
 	raw := &MoaRawRespPacket{}
 	raw.ErrCode = resp.ErrCode
 	raw.Message = resp.Message
-	rw, _ := json.Marshal(resp.Result)
+	rw, _ := ffjson.Marshal(resp.Result)
 	raw.Result = json.RawMessage(rw)
 	return raw
 }

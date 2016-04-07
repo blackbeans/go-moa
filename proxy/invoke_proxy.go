@@ -1,13 +1,14 @@
 package proxy
 
 import (
-	"encoding/json"
+	_ "encoding/json"
 	"fmt"
 	"github.com/blackbeans/go-moa/log4moa"
 	"github.com/blackbeans/go-moa/protocol"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 	"github.com/go-errors/errors"
+	"github.com/pquerna/ffjson/ffjson"
 	"reflect"
 	"strings"
 	"time"
@@ -122,7 +123,7 @@ func (self InvocationHandler) Invoke(packet *protocol.MoaRawReqPacket) *protocol
 				for i, f := range m.ParamTypes {
 					arg := packet.Params.Args[i]
 					inst := reflect.New(f)
-					uerr := json.Unmarshal(arg, inst.Interface())
+					uerr := ffjson.Unmarshal(arg, inst.Interface())
 					if nil != uerr {
 						resp.ErrCode = protocol.CODE_SERIALIZATION_SERVER
 						resp.Message = fmt.Sprintf(protocol.MSG_SERIALIZATION, uerr)
