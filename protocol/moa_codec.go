@@ -14,16 +14,23 @@ import (
 
 var BYTES_PING []byte
 var BYTES_GET []byte
+var BYTES_INFO []byte
 
 func init() {
+
+	BYTES_INFO = []byte("INFO")
 	BYTES_PING = []byte("PING")
 	BYTES_GET = []byte("GET")
 }
 
 const (
 	PADDING = byte(0x00)
-	GET     = byte(0x01)
-	PING    = byte(0x02)
+	//*1\r\n$4\r\nPING\r\n
+	//*2\r\n$3\r\nGET\r\n${0}\r\n{"method":"","service-uri":""}\r\n
+	//*1\r\n$4\r\nINFO\r\n
+	GET  = byte(0x01)
+	PING = byte(0x02)
+	INFO = byte(0x03)
 )
 
 type RedisGetCodec struct {
@@ -50,8 +57,7 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 	if nil != err {
 		return nil, errors.New("RedisGetCodec Read Command Args Count Packet Err " + err.Error())
 	}
-	//*1\r\n$4\r\nPING\r\n
-	//*2\r\n$3\r\nGET\r\n${0}\r\n{"method":"","service-uri":""}\r\n
+
 	if line[0] == '*' {
 		//略过\r\n
 		ac, _ := strconv.Atoi(string(line[1:]))
@@ -78,6 +84,8 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			flag = PING
 		} else if bytes.Equal(BYTES_GET, cmdType) {
 			flag = GET
+		} else if bytes.Equal(BYTES_INFO, cmdType) {
+			flag = INFO
 		}
 		params[ac-1][len(params[ac-1])-1] = flag
 		//得到了get和Ping数据将数据返回出去
@@ -158,7 +166,7 @@ func (self RedisGetCodec) MarshalPacket(packet *packet.Packet) []byte {
 		buff.WriteString(body)
 		buff.WriteString("\r\n")
 		return buff.Bytes()
-	} else if packet.Header.CmdType == PING {
+	} else if packet.Header.CmdType == PING || packet.Header.CmdType == INFO {
 		buff := bytes.NewBuffer(make([]byte, 0, 1+len(body)))
 		buff.WriteString("+")
 		buff.WriteString(body)

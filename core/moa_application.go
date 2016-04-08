@@ -74,7 +74,10 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 	app.invokeHandler = proxy.NewInvocationHandler(services, moaStat)
 
 	//启动remoting
-	remoting := server.NewRemotionServerWithCodec(options.hostport, rc, cf, app.packetDispatcher)
+	remoting := server.NewRemotionServerWithCodec(options.hostport, rc, cf,
+		func(remoteClient *client.RemotingClient, p *packet.Packet) {
+			packetDispatcher(app, remoteClient, p)
+		})
 	app.remoting = remoting
 	remoting.ListenAndServer()
 	moaStat.StartLog()
@@ -102,7 +105,7 @@ func (self Application) DestoryApplication() {
 }
 
 //需要开发对应的分包
-func (self Application) packetDispatcher(remoteClient *client.RemotingClient, p *packet.Packet) {
+func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p *packet.Packet) {
 
 	defer func() {
 		if err := recover(); nil != err {
@@ -133,6 +136,10 @@ func (self Application) packetDispatcher(remoteClient *client.RemotingClient, p 
 	} else if p.Header.CmdType == protocol.PING {
 		//PING 协议 不做人事事情
 		resp, _ := protocol.Wrap2ResponsePacket(p, "PONG")
+		remoteClient.Write(*resp)
+	} else if p.Header.CmdType == protocol.INFO {
+		//INFO 协议，返回服务端的xinxi
+		resp, _ := protocol.Wrap2ResponsePacket(p, self.remoting.NetworkStat())
 		remoteClient.Write(*resp)
 	}
 
