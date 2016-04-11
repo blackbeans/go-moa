@@ -8,21 +8,31 @@
 
 
 #### Redis协议简介
-    - Get 
-    exp: get {"action":"/service/bibi/go-moa","params":{"m":"setName","args":["a"]}}
-        action:理解为服务名称（service-uri）
-        m:需要调用该服务的方法名称(已经做了go和java关于方法名首字母大写兼容)
-        args：m方法的调用参数序列。
 
-    - PING 
-        同 Redis的PING返回PONG
+   * 可以使用redis-cli -h -p get/ping/info 命令访问服务或发起服务调用
 
-    - INFO
-        同 Redis的INFO，返回MOA和网络状态(json数据moa与network节点)。
-        exp:
+   * Get
+   
+   exp:
+
+      get {"action":"/service/bibi/go-moa","params":{"m":"setName","args":["a"]}}
+      action:理解为服务名称（service-uri）
+      m:需要调用该服务的方法名称(已经做了go和java关于方法名首字母大写兼容)
+      args：m方法的调用参数序列。
+
+   * PING 
+     
+       同 Redis的PING返回PONG
+
+   * INFO
+   
+      同 Redis的INFO，返回MOA和网络状态(json数据moa与network节点)。
+
+      exp:
+      
         {"moa":{"recv":0,"proc":0,"error":0},"network":{"read_count":1,"read_bytes":9,"write_count":0,"write_bytes":0,"dispatcher_go":1,"connections":1}}
 
-**** 完全可以使用redis-cli -h -p get/ping/info 命令访问服务或发起服务调用
+
 
 #### 安装：
     
