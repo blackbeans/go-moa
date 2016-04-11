@@ -16,8 +16,11 @@
    exp:
 
       get {"action":"/service/bibi/go-moa","params":{"m":"setName","args":["a"]}}
+      
       action:理解为服务名称（service-uri）
+      
       m:需要调用该服务的方法名称(已经做了go和java关于方法名首字母大写兼容)
+      
       args：m方法的调用参数序列。
 
    * PING 
