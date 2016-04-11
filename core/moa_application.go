@@ -24,6 +24,7 @@ type Application struct {
 	invokeHandler *proxy.InvocationHandler
 	options       *MOAOption
 	configCenter  *lb.ConfigCenter
+	moaStat       *log4moa.MoaStat
 }
 
 func NewApplcation(configPath string, bundle ServiceBundle) *Application {
@@ -70,7 +71,7 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 			s.WriteBytes/1024, s.WriteCount, s.DispatcherGo, s.Connections)
 
 	})
-
+	app.moaStat = moaStat
 	app.invokeHandler = proxy.NewInvocationHandler(services, moaStat)
 
 	//启动remoting
@@ -138,8 +139,11 @@ func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p 
 		resp, _ := protocol.Wrap2ResponsePacket(p, "PONG")
 		remoteClient.Write(*resp)
 	} else if p.Header.CmdType == protocol.INFO {
-		//INFO 协议，返回服务端的xinxi
-		resp, _ := protocol.Wrap2ResponsePacket(p, self.remoting.NetworkStat())
+		//INFO 协议，返回服务端信息
+		stat := make(map[string]interface{}, 2)
+		stat["network"] = self.remoting.NetworkStat()
+		stat["moa"] = self.moaStat.GetMoaInfo()
+		resp, _ := protocol.Wrap2ResponsePacket(p, stat)
 		remoteClient.Write(*resp)
 	}
 

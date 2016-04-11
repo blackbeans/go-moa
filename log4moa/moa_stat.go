@@ -4,6 +4,7 @@ import (
 	"fmt"
 	log "github.com/blackbeans/log4go"
 	"github.com/go-errors/errors"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -13,14 +14,20 @@ const (
 	MOA_STAT_LOG    = "moa-stat"
 )
 
+type MoaInfo struct {
+	Recv  int64 `json:"recv"`
+	Proc  int64 `json:"proc"`
+	Error int64 `json:"error"`
+}
+
 //
 type MoaStat struct {
-	Recv       int64
-	Proc       int64
-	Error      int64
-	RotateSize int32
-	network    func() string
-	MoaTicker  *time.Ticker
+	lasterMoaInfo *MoaInfo
+	currMoaInfo   *MoaInfo
+	RotateSize    int32
+	network       func() string
+	MoaTicker     *time.Ticker
+	lock          sync.RWMutex
 }
 
 type MoaLog interface {
@@ -30,11 +37,9 @@ type MoaLog interface {
 
 func NewMoaStat(network func() string) *MoaStat {
 	moaStat := &MoaStat{
-		Recv:       0,
-		Proc:       0,
-		Error:      0,
-		RotateSize: 0,
-		network:    network}
+		currMoaInfo: &MoaInfo{},
+		RotateSize:  0,
+		network:     network}
 	return moaStat
 }
 
@@ -65,37 +70,45 @@ func (self *MoaStat) StartLog() {
 			if self.RotateSize == MAX_ROTATE_SIZE {
 				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tNetWork")
 				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%s",
-					self.Recv, self.Proc, self.Error, self.network())
+					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error, self.network())
 				// self.RotateSize = 0
 				atomic.StoreInt32(&self.RotateSize, 0)
 			} else {
 				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%s",
-					self.Recv, self.Proc, self.Error, self.network())
+					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error, self.network())
 				// self.RotateSize++
 				atomic.AddInt32(&self.RotateSize, 1)
 			}
-			self.clear()
+			self.reset()
 		}
 	}()
 }
 
 func (self *MoaStat) IncreaseRecv() {
-	atomic.AddInt64(&self.Recv, 1)
+	atomic.AddInt64(&self.currMoaInfo.Recv, 1)
 }
 
 func (self *MoaStat) IncreaseProc() {
-	atomic.AddInt64(&self.Proc, 1)
+	atomic.AddInt64(&self.currMoaInfo.Proc, 1)
 }
 
 func (self *MoaStat) IncreaseError() {
-	atomic.AddInt64(&self.Error, 1)
+	atomic.AddInt64(&self.currMoaInfo.Error, 1)
 }
 
-func (self *MoaStat) clear() {
-	atomic.StoreInt64(&self.Recv, 0)
-	atomic.StoreInt64(&self.Proc, 0)
-	atomic.StoreInt64(&self.Error, 0)
+func (self *MoaStat) GetMoaInfo() *MoaInfo {
+	return self.currMoaInfo
+}
 
+func (self *MoaStat) reset() {
+	self.lasterMoaInfo = &MoaInfo{
+		Recv:  self.currMoaInfo.Recv,
+		Proc:  self.currMoaInfo.Proc,
+		Error: self.currMoaInfo.Error,
+	}
+	atomic.StoreInt64(&self.currMoaInfo.Recv, 0)
+	atomic.StoreInt64(&self.currMoaInfo.Proc, 0)
+	atomic.StoreInt64(&self.currMoaInfo.Error, 0)
 }
 
 func (self *MoaStat) Destory() {
