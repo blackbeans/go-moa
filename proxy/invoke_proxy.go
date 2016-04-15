@@ -162,35 +162,39 @@ func (self InvocationHandler) Invoke(packet *protocol.MoaRawReqPacket) *protocol
 					packet.Channel <- ir
 				}()
 				timerId, timeout := self.tw.After(packet.Timeout, func() {})
-				select {
-				case r := <-packet.Channel:
-					result := r.(*invokeResult)
-					values := result.values
-					if nil != result.err {
-						self.moaStat.IncreaseError()
-						resp.ErrCode = protocol.CODE_INVOCATION_TARGET
-						resp.Message = fmt.Sprintf("Invoke FAIL %s", result.err)
-					} else if nil == values {
-						self.moaStat.IncreaseError()
-						resp.ErrCode = protocol.CODE_INVOCATION_TARGET
-						resp.Message = fmt.Sprintf("NO Result ...")
-					} else {
-						self.moaStat.IncreaseProc()
-						resp.ErrCode = protocol.CODE_SERVER_SUCC
-						resp.Result = values[0].Interface()
-						//则肯定会有error
-						if len(values) > 1 {
-							resp.Message = fmt.Sprintf("%v", values[1].Interface())
-						}
+				func() {
+					defer self.tw.Remove(timerId)
+					select {
+					case r := <-packet.Channel:
+						result := r.(*invokeResult)
+						values := result.values
+						if nil != result.err {
+							self.moaStat.IncreaseError()
+							resp.ErrCode = protocol.CODE_INVOCATION_TARGET
+							resp.Message = fmt.Sprintf("Invoke FAIL %s", result.err)
+						} else if nil == values {
+							self.moaStat.IncreaseError()
+							resp.ErrCode = protocol.CODE_INVOCATION_TARGET
+							resp.Message = fmt.Sprintf("NO Result ...")
+						} else {
+							self.moaStat.IncreaseProc()
+							resp.ErrCode = protocol.CODE_SERVER_SUCC
+							resp.Result = values[0].Interface()
+							//则肯定会有error
+							if len(values) > 1 {
+								resp.Message = fmt.Sprintf("%v", values[1].Interface())
+							}
 
+						}
+					case <-timeout:
+						self.moaStat.IncreaseError()
+						resp.ErrCode = protocol.CODE_TIMEOUT_SERVER
+						resp.Message = fmt.Sprintf(protocol.MSG_TIMEOUT,
+							packet.ServiceUri+"#"+packet.Params.Method)
 					}
-				case <-timeout:
-					self.moaStat.IncreaseError()
-					resp.ErrCode = protocol.CODE_TIMEOUT_SERVER
-					resp.Message = fmt.Sprintf(protocol.MSG_TIMEOUT,
-						packet.ServiceUri+"#"+packet.Params.Method)
-				}
-				self.tw.Remove(timerId)
+
+				}()
+
 			}
 		}
 	}
