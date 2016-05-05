@@ -48,7 +48,7 @@
     ```
 
     * 定义服务的接口对应
-        - 例如接口为：
+      - 例如接口为：
 
         ```goalng
             //接口
@@ -68,7 +68,9 @@
                 return DemoResult{[]string{"fuck gfw"}, serviceUri}, nil
             }
          ```
-
+      - 约定：
+            为了给客户端友好的返回错误信息，go-moa的服务接口最后一个返回必须为error类型。并且为了满足Java单一返回结果所以返回参数最多2个。
+            
     * 服务端启动启动：
     
          ```goalng
