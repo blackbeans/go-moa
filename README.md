@@ -102,6 +102,8 @@
 #### Benchmark
 
     env:Macbook Pro 2.2 GHz Intel Core i7
+    
+    redis-benchmark result : 53527.46 requests per second
 
     go test --bench=".*" github.com/blackbeans/go-moa/core -run=BenchmarkApplication
 
