@@ -7,7 +7,7 @@
     * 使用当前众多语言的redisclient即可以完成客户端开发。
 
 #### 使用样例
-    * [样例参考](https://github.com/blackbeans/go-moa-demo)
+   [样例参考](https://github.com/blackbeans/go-moa-demo)
 
 #### Redis协议简介
 
