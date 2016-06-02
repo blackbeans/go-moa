@@ -41,6 +41,6 @@ const (
 	MSG_PARAMS_NOT_MATCHED  = "params number is not matched! %d/%d"
 	MSG_SERVICE_NOT_FOUND   = "Service not found: %s."
 	MSG_METHOD_NOT_FOUND    = "Method not found: %s."
-	MSG_INVOCATION_TARGET   = "Invocation target exception: %s"
+	MSG_INVOCATION_TARGET   = "Invocation target exception: (%s)"
 	MSG_THREAD_POOL_IS_FULL = "Threadpool is full: %s"
 )

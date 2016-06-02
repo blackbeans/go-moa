@@ -3,10 +3,11 @@ package lb
 import (
 	"encoding/json"
 	"errors"
+	"time"
+
 	"github.com/blackbeans/go-moa/protocol"
 	log "github.com/blackbeans/log4go"
 	"gopkg.in/redis.v3"
-	"time"
 )
 
 const (

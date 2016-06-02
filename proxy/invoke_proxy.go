@@ -147,13 +147,13 @@ func (self InvocationHandler) Invoke(packet *protocol.MoaRawReqPacket) *protocol
 								stack := er.ErrorStack()
 								e = errors.New(stack)
 							} else {
-								e = errors.New(fmt.Sprintf("Method Call Err %s", err))
+								e = errors.New(fmt.Sprintf("Method Call Err (%s)", err))
 							}
 
 							//TODO LOG ERROR
-							log.ErrorLog("moa-server", "InvocationHandler|Invoke|Call|FAIL|%s|%s|%s|%s",
+							log.ErrorLog("moa-server", "InvocationHandler|Invoke|Call|FAIL|%s|%s|%s|%s|%s",
 								e, packet.ServiceUri, m.Name, params)
-							resp.Message = fmt.Sprintf(protocol.MSG_INVOCATION_TARGET, err)
+							resp.Message = fmt.Sprintf(protocol.MSG_INVOCATION_TARGET, e)
 							ir.err = er
 							packet.Channel <- ir
 						}
@@ -171,7 +171,7 @@ func (self InvocationHandler) Invoke(packet *protocol.MoaRawReqPacket) *protocol
 						if nil != result.err {
 							self.moaStat.IncreaseError()
 							resp.ErrCode = protocol.CODE_INVOCATION_TARGET
-							resp.Message = fmt.Sprintf("Invoke FAIL %s", result.err)
+							resp.Message = fmt.Sprintf("Invoke FAIL (%s)", result.err)
 						} else if nil == values {
 							self.moaStat.IncreaseError()
 							resp.ErrCode = protocol.CODE_INVOCATION_TARGET
