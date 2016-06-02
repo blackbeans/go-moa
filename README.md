@@ -6,6 +6,8 @@
     * 使用json序列化协议满足良好跨语言兼容性
     * 使用当前众多语言的redisclient即可以完成客户端开发。
 
+#### 使用样例
+   [样例参考](https://github.com/blackbeans/go-moa-demo)
 
 #### Redis协议简介
 
@@ -39,16 +41,17 @@
 
 #### 安装：
     
-    安装ZooKeeper
+   安装ZooKeeper
     $Zookeeper/bin/zkServer.sh start
     
     ```
     go get  github.com/blackbeans/go-moa/core
     go get  github.com/blackbeans/go-moa/proxy
     ```
-
-    * 定义服务的接口对应
-        - 例如接口为：
+   
+   * 定义服务的接口对应
+   
+   - 例如接口为：
 
         ```goalng
             //接口
@@ -68,8 +71,10 @@
                 return DemoResult{[]string{"fuck gfw"}, serviceUri}, nil
             }
          ```
-
-    * 服务端启动启动：
+   - 约定：
+            为了给客户端友好的返回错误信息，go-moa的服务接口最后一个返回必须为error类型。并且为了满足Java单一返回结果所以返回参数最多2个。
+            
+   * 服务端启动启动：
     
          ```goalng
     
@@ -93,15 +98,17 @@
     
         ```
 
-    * 说明
+   * 说明
         - Service为一个服务单元，对应了本服务对外的服务名称、以及对应的接口
     
         - Applcation需要对应的Moa的配置文件，toml类型，具体配置参见./conf/cluster_test. toml
-    * 发布服务成功可以使用客户端进行测试，具体[客户端的使用请参考](http://github.    com/blackbeans/go-moa-client/blob/master/README.md)
+   * 发布服务成功可以使用客户端进行测试，具体[客户端的使用请参考](http://github.    com/blackbeans/go-moa-client/blob/master/README.md)
 
 #### Benchmark
 
     env:Macbook Pro 2.2 GHz Intel Core i7
+    
+    redis-benchmark result : 53527.46 requests per second
 
     go test --bench=".*" github.com/blackbeans/go-moa/core -run=BenchmarkApplication
 
