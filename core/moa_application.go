@@ -97,7 +97,7 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 	return app
 }
 
-func (self Application) DestoryApplication() {
+func (self Application) DestroyApplication() {
 
 	//取消注册服务
 	self.configCenter.Destroy()

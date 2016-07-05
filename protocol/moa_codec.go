@@ -9,7 +9,6 @@ import (
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo/packet"
 	"github.com/go-errors/errors"
-	"net"
 	"strconv"
 )
 
@@ -56,7 +55,7 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 
 	line, _, err := reader.ReadLine()
 	if nil != err {
-		return err
+		return nil, err
 	}
 
 	if line[0] == '*' {
