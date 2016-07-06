@@ -6,7 +6,6 @@ import (
 	"github.com/blackbeans/go-moa/log4moa"
 	"github.com/blackbeans/go-moa/protocol"
 	log "github.com/blackbeans/log4go"
-	"github.com/blackbeans/turbo"
 	"github.com/go-errors/errors"
 	"reflect"
 	"strings"
@@ -31,7 +30,6 @@ type Service struct {
 type InvocationHandler struct {
 	instances map[string]Service
 	moaStat   *log4moa.MoaStat
-	tw        *turbo.TimeWheel
 }
 
 var errorType = reflect.TypeOf(make([]error, 1)).Elem()
@@ -88,8 +86,7 @@ func NewInvocationHandler(services []Service, moaStat *log4moa.MoaStat) *Invocat
 		instances[s.ServiceUri] = s
 		log.InfoLog("moa-server", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
 	}
-	tw := turbo.NewTimeWheel(1*time.Second, 10, 10)
-	return &InvocationHandler{instances, moaStat, tw}
+	return &InvocationHandler{instances, moaStat}
 
 }
 
@@ -135,8 +132,6 @@ func (self InvocationHandler) Invoke(packet *protocol.MoaRawReqPacket) *protocol
 					self.moaStat.IncreaseError()
 					return resp
 				}
-				// errChan := make(chan error, 1)
-				// ch := make(chan *invokeResult, 1)
 				go func() {
 					ir := &invokeResult{}
 					defer func() {
@@ -161,9 +156,8 @@ func (self InvocationHandler) Invoke(packet *protocol.MoaRawReqPacket) *protocol
 					ir.values = m.Method.Call(params)
 					packet.Channel <- ir
 				}()
-				timerId, timeout := self.tw.After(packet.Timeout, func() {})
+
 				func() {
-					defer self.tw.Remove(timerId)
 					select {
 					case r := <-packet.Channel:
 						result := r.(*invokeResult)
@@ -186,11 +180,13 @@ func (self InvocationHandler) Invoke(packet *protocol.MoaRawReqPacket) *protocol
 							}
 
 						}
-					case <-timeout:
+					case <-time.After(packet.Timeout):
 						self.moaStat.IncreaseError()
 						resp.ErrCode = protocol.CODE_TIMEOUT_SERVER
 						resp.Message = fmt.Sprintf(protocol.MSG_TIMEOUT,
 							packet.ServiceUri+"#"+packet.Params.Method)
+						log.WarnLog("moa-server", "InvocationHandler|Invoke|Call|Timeout[%d]|%s|%s|%v",
+							packet.Timeout/time.Second, packet.ServiceUri, m.Name, params)
 					}
 
 				}()
