@@ -142,7 +142,17 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 		}
 		//没有匹配的IP直接用0.0.0.0的IP绑定
 		if !hasMatched {
-			option.Env.BindAddress = "0.0.0.0:" + split[1]
+			for _, addr := range addrs {
+				if ip, ok := addr.(*net.IPNet); ok && !ip.IP.IsLoopback() {
+					option.Env.BindAddress = ip.IP.To4().String() + ":" + split[1]
+					hasMatched = true
+					break
+				}
+			}
+
+			if !hasMatched {
+				option.Env.BindAddress = "0.0.0.0" + ":" + split[1]
+			}
 		}
 	}
 
