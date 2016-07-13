@@ -73,11 +73,8 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	app.options = options
 	app.configCenter = configCenter
 	//moastat
-	moaStat := log4moa.NewMoaStat(options.hostport, services[0].ServiceUri, monitor, func() string {
-		s := app.remoting.NetworkStat()
-		return fmt.Sprintf("R:%dKB/%d\tW:%dKB/%d\tGo:%d\tCONN:%d", s.ReadBytes/1024,
-			s.ReadCount,
-			s.WriteBytes/1024, s.WriteCount, s.DispatcherGo, s.Connections)
+	moaStat := log4moa.NewMoaStat(options.hostport, services[0].ServiceUri, monitor, func() turbo.NetworkStat {
+		return app.remoting.NetworkStat()
 
 	})
 	app.moaStat = moaStat
