@@ -15,9 +15,12 @@ const (
 )
 
 type MoaInfo struct {
-	Recv  int64 `json:"recv"`
-	Proc  int64 `json:"proc"`
-	Error int64 `json:"error"`
+	Recv            int64 `json:"received_Count"`
+	Proc            int64 `json:"processed_Count"`
+	Error           int64 `json:"error_Count"`
+	Timeout         int64 `json:"error_timeout_Count"`
+	GoroutineCount  int64 `json:"threads_Value"`
+	ConnectionCount int64 `json:"connection_count"`
 }
 
 //
@@ -28,6 +31,9 @@ type MoaStat struct {
 	network       func() string
 	MoaTicker     *time.Ticker
 	lock          sync.RWMutex
+	monitor       func(serviceUri, host string, moainfo MoaInfo)
+	hostname      string
+	serviceUri    string
 }
 
 type MoaLog interface {
@@ -35,11 +41,15 @@ type MoaLog interface {
 	Destory()
 }
 
-func NewMoaStat(network func() string) *MoaStat {
+func NewMoaStat(hostname, serviceUri string,
+	moniotr func(serviceUri, host string, moainfo MoaInfo), network func() string) *MoaStat {
 	moaStat := &MoaStat{
 		currMoaInfo: &MoaInfo{},
 		RotateSize:  0,
-		network:     network}
+		network:     network,
+		monitor:     moniotr,
+		hostname:    hostname,
+		serviceUri:  serviceUri}
 	return moaStat
 }
 
@@ -64,21 +74,26 @@ func (self *MoaStat) StartLog() {
 			}
 
 		}()
-		log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tNetWork")
+		log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
 		for {
 			<-ticker.C
 			if self.RotateSize == MAX_ROTATE_SIZE {
-				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tNetWork")
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%s",
-					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error, self.network())
+				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
+				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%s",
+					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error,
+					self.currMoaInfo.Timeout, self.currMoaInfo.GoroutineCount, self.network())
 				// self.RotateSize = 0
 				atomic.StoreInt32(&self.RotateSize, 0)
 			} else {
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%s",
-					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error, self.network())
+				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%s",
+					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error,
+					self.currMoaInfo.Timeout, self.currMoaInfo.GoroutineCount, self.network())
 				// self.RotateSize++
 				atomic.AddInt32(&self.RotateSize, 1)
 			}
+
+			//send data
+			self.monitor(self.serviceUri, self.hostname, *self.currMoaInfo)
 			self.reset()
 		}
 	}()
@@ -96,19 +111,25 @@ func (self *MoaStat) IncreaseError() {
 	atomic.AddInt64(&self.currMoaInfo.Error, 1)
 }
 
-func (self *MoaStat) GetMoaInfo() *MoaInfo {
-	return self.currMoaInfo
+func (self *MoaStat) IncreaseTimeout() {
+	atomic.AddInt64(&self.currMoaInfo.Timeout, 1)
+}
+
+func (self *MoaStat) GoroutineCount(count int64) {
+	atomic.StoreInt64(&self.currMoaInfo.GoroutineCount, count)
+}
+
+func (self *MoaStat) ConnectionCount(count int64) {
+	atomic.StoreInt64(&self.currMoaInfo.ConnectionCount, count)
+}
+
+func (self *MoaStat) GetMoaInfo() MoaInfo {
+	return *self.currMoaInfo
 }
 
 func (self *MoaStat) reset() {
-	self.lasterMoaInfo = &MoaInfo{
-		Recv:  self.currMoaInfo.Recv,
-		Proc:  self.currMoaInfo.Proc,
-		Error: self.currMoaInfo.Error,
-	}
-	atomic.StoreInt64(&self.currMoaInfo.Recv, 0)
-	atomic.StoreInt64(&self.currMoaInfo.Proc, 0)
-	atomic.StoreInt64(&self.currMoaInfo.Error, 0)
+	self.lasterMoaInfo = self.currMoaInfo
+	self.currMoaInfo = &MoaInfo{}
 }
 
 func (self *MoaStat) Destory() {
