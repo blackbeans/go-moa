@@ -20,7 +20,7 @@ type MoaInfo struct {
 	Proc            int64 `json:"processed_Count"`
 	Error           int64 `json:"error_Count"`
 	Timeout         int64 `json:"error_timeout_Count"`
-	GoroutineCount  int64 `json:"threads_Value"`
+	GoroutineCount  int64 `json:"goroutine"`
 	ConnectionCount int64 `json:"connection_count"`
 }
 
