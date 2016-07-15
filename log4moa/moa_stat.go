@@ -8,6 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"runtime"
 )
 
 const (
@@ -20,8 +22,9 @@ type MoaInfo struct {
 	Proc            int64 `json:"processed_Count"`
 	Error           int64 `json:"error_Count"`
 	Timeout         int64 `json:"error_timeout_Count"`
-	GoroutineCount  int64 `json:"goroutine"`
+	GoroutineCount  int64 `json:"threads_Value"`
 	ConnectionCount int64 `json:"connection_count"`
+	Goroutine       int64 `json:"goroutine"`
 }
 
 //
@@ -100,6 +103,7 @@ func (self *MoaStat) StartLog() {
 			//send data
 			self.currMoaInfo.ConnectionCount = int64(stat.Connections)
 			self.currMoaInfo.GoroutineCount = int64(stat.DispatcherGo)
+			self.currMoaInfo.Goroutine = int64(runtime.NumGoroutine())
 			self.monitor(self.serviceUri, self.hostname, *self.currMoaInfo)
 			self.reset()
 		}
