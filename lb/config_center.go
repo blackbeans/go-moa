@@ -43,7 +43,7 @@ func NewConfigCenter(registryType, registryAddr,
 	} else if registryType == REGISTRY_ZOOKEEPER {
 		uris := make([]string, 0, 10)
 		for _, s := range services {
-			uris = append(uris, buildServiceUri(s.ServiceUri, s.GroupId))
+			uris = append(uris, BuildServiceUri(s.ServiceUri, s.GroupId))
 		}
 		reg = NewZookeeper(registryAddr, uris, true)
 	}
@@ -105,4 +105,12 @@ func (self ConfigCenter) Destroy() {
 		}
 	}
 	self.registry.Destroy()
+}
+
+func BuildServiceUri(serviceUri, groupId string) string {
+	if len(groupId) > 0 && "*" != groupId {
+		return concat(serviceUri, "#", groupId)
+	} else {
+		return serviceUri
+	}
 }

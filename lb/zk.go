@@ -63,20 +63,12 @@ func NewZookeeper(regAddr string, service []string, serverModel bool) *zookeeper
 	return zoo
 }
 
-func buildServiceUri(serviceUri, groupId string) string {
-	if len(groupId) > 0 && "*" != groupId {
-		return concat(serviceUri, "#", groupId)
-	} else {
-		return serviceUri
-	}
-}
-
 func (self zookeeper) RegisteService(serviceUri, hostport, protoType, groupId string) bool {
 	// /moa/service/redis/service/relation-service#{groupId}/localhost:13000?timeout=1000&protocol=redis
 	// hostport = "localhost:13000" //test
 	servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, protoType)
 	//has groupId
-	servicePath = concat(servicePath, buildServiceUri(serviceUri, groupId))
+	servicePath = concat(servicePath, BuildServiceUri(serviceUri, groupId))
 
 	svAddrPath := concat(servicePath, ZK_PATH_DELIMITER, hostport)
 
@@ -111,7 +103,7 @@ func (self zookeeper) UnRegisteService(serviceUri, hostport, protoType, groupId 
 
 	servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, protoType)
 	//has groupId
-	servicePath = concat(servicePath, buildServiceUri(serviceUri, groupId), ZK_PATH_DELIMITER, hostport)
+	servicePath = concat(servicePath, BuildServiceUri(serviceUri, groupId), ZK_PATH_DELIMITER, hostport)
 	// fmt.Printf("-------%s\n", servicePath)
 	conn := self.zkManager.session
 	if flag, _, err := conn.Exists(servicePath); err != nil {
@@ -135,7 +127,7 @@ func (self zookeeper) GetService(serviceUri, protoType, groupId string) ([]strin
 	// log.WarnLog("config_center", "zookeeper|GetService|SUCC|%s|%s|%s", serviceUri, protoType, self.addrManager.uri2Hosts)
 	self.lock.RLock()
 	defer self.lock.RUnlock()
-	key := buildServiceUri(serviceUri, groupId)
+	key := BuildServiceUri(serviceUri, groupId)
 	hosts, ok := self.uri2Hosts[key]
 	if !ok {
 		if len(hosts) < 1 {

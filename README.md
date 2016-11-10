@@ -5,6 +5,7 @@
     * 基于redis的get、ping、info协议构建协议通讯
     * 使用json序列化协议满足良好跨语言兼容性
     * 使用当前众多语言的redisclient即可以完成客户端开发。
+    * 基于GroupId划分同服务下的服务，满足初步的治理需要
 
 #### 使用样例
    [样例参考](https://github.com/blackbeans/go-moa-demo)

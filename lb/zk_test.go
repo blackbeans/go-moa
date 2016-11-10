@@ -56,7 +56,7 @@ func TestGroupZKRegisteService(t *testing.T) {
 	hostport := "localhost:18000"
 	groupId := "s-mts-group"
 
-	groupUri := buildServiceUri("/service/bibi-profile", "s-mts-group")
+	groupUri := BuildServiceUri("/service/bibi-profile", "s-mts-group")
 	registry := NewZookeeper(regAddr, []string{groupUri}, false)
 
 	registry.RegisteService(serviceUri, hostport, protocol, groupId)

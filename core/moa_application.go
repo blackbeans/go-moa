@@ -44,11 +44,12 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		panic(err)
 	}
 
-	//修正serviceUri的后缀
+	cloneServs := make([]proxy.Service, 0, len(services))
+
 	for i, s := range services {
-		// s.ServiceUri = (s.ServiceUri + options.serviceUriSuffix)
 		s.GroupId = options.groupId
 		services[i] = s
+		cloneServs = append(cloneServs, s)
 	}
 
 	name := options.name + "/" + options.hostport
@@ -79,6 +80,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	})
 	app.moaStat = moaStat
+
 	app.invokeHandler = proxy.NewInvocationHandler(services, moaStat)
 
 	//启动remoting
