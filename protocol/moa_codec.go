@@ -88,6 +88,7 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			flag = INFO
 		}
 		params[ac-1][len(params[ac-1])-1] = flag
+
 		//得到了get和Ping数据将数据返回出去
 		return bytes.NewBuffer(params[ac-1]), nil
 	} else {

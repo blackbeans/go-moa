@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/blackbeans/go-moa/log4moa"
 	"github.com/blackbeans/go-moa/protocol"
+	"github.com/blackbeans/turbo"
 	"reflect"
 	"testing"
 	"time"
@@ -44,9 +45,13 @@ func (self Demo) HelloComplexSlice(text string, arg2 map[string]DemoParam, arr [
 	return DemoResult{"test", text}, nil
 }
 
+var stat = log4moa.NewMoaStat("hostname", "serviceUri",
+	func(serviceUri, host string, moainfo log4moa.MoaInfo) {}, func() turbo.NetworkStat { return turbo.NetworkStat{} })
+
 func TestInvocationHandler(t *testing.T) {
-	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
-		Instance: Demo{}, Interface: (*IHello)(nil)}}, log4moa.NewMoaStat(func() string { return "" }))
+	handler := NewInvocationHandler([]Service{Service{
+		ServiceUri: "demo",
+		Instance:   Demo{}, Interface: (*IHello)(nil)}}, stat)
 	m, ok := handler.instances["demo"].methods["hello"]
 	if !ok {
 		t.Fail()
@@ -62,7 +67,7 @@ func TestInvocationHandler(t *testing.T) {
 
 func TestInvocationInvoke(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
-		Instance: Demo{}, Interface: (*IHello)(nil)}}, log4moa.NewMoaStat(func() string { return "" }))
+		Instance: Demo{}, Interface: (*IHello)(nil)}}, stat)
 	req := &protocol.MoaReqPacket{}
 	req.ServiceUri = "demo"
 	req.Channel = make(chan interface{}, 10)
@@ -82,7 +87,7 @@ func TestInvocationInvoke(t *testing.T) {
 
 func TestInvokeHelloSlice(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
-		Instance: Demo{}, Interface: (*IHello)(nil)}}, log4moa.NewMoaStat(func() string { return "" }))
+		Instance: Demo{}, Interface: (*IHello)(nil)}}, stat)
 	req := &protocol.MoaReqPacket{}
 	req.Channel = make(chan interface{}, 10)
 	req.ServiceUri = "demo"
@@ -101,7 +106,7 @@ func TestInvokeHelloSlice(t *testing.T) {
 
 func TestInvokeJsonParams(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
-		Instance: Demo{}, Interface: (*IHello)(nil)}}, log4moa.NewMoaStat(func() string { return "" }))
+		Instance: Demo{}, Interface: (*IHello)(nil)}}, stat)
 
 	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"HelloSlice\",\"args\":[\"fuck\",[\"a\", \"b\"],{\"Name\":\"you\"}]}}"
 	var req protocol.MoaRawReqPacket
@@ -124,7 +129,7 @@ func TestInvokeJsonParams(t *testing.T) {
 
 func TestComplexSliceJsonParams(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
-		Instance: Demo{}, Interface: (*IHello)(nil)}}, log4moa.NewMoaStat(func() string { return "" }))
+		Instance: Demo{}, Interface: (*IHello)(nil)}}, stat)
 
 	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"HelloComplexSlice\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
 	var req protocol.MoaRawReqPacket

@@ -46,7 +46,8 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	//修正serviceUri的后缀
 	for i, s := range services {
-		s.ServiceUri = (s.ServiceUri + options.serviceUriSuffix)
+		// s.ServiceUri = (s.ServiceUri + options.serviceUriSuffix)
+		s.GroupId = options.groupId
 		services[i] = s
 	}
 
@@ -67,7 +68,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	//创建注册服务
 	configCenter := lb.NewConfigCenter(options.registryType,
-		options.registryHosts, options.hostport, services)
+		options.registryHosts, options.hostport, options.groupId, services)
 
 	app := &Application{}
 	app.options = options

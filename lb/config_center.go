@@ -11,24 +11,26 @@ const (
 	PROTOCOL            = "redis"
 	REGISTRY_MOMOKEEPER = "momokeeper"
 	REGISTRY_ZOOKEEPER  = "zookeeper"
+	ALL_GROUP           = "*"
 )
 
 type ConfigCenter struct {
 	registry IRegistry
 	services []proxy.Service
 	hostport string
+	groupId  string
 }
 
 type IRegistry interface {
-	RegisteService(serviceUri, hostport, protoType string) bool
-	UnRegisteService(serviceUri, hostport, protoType string) bool
-	GetService(serviceUri, protoType string) ([]string, error)
+	RegisteService(serviceUri, hostport, protoType, groupId string) bool
+	UnRegisteService(serviceUri, hostport, protoType, groupId string) bool
+	GetService(serviceUri, protoType, groupId string) ([]string, error)
 	Destroy()
 }
 
 //用于创建
-func NewConfigCenter(registryType string, registryAddr string,
-	hostport string, services []proxy.Service) *ConfigCenter {
+func NewConfigCenter(registryType, registryAddr,
+	hostport, groupId string, services []proxy.Service) *ConfigCenter {
 	var reg IRegistry
 	if registryType == REGISTRY_MOMOKEEPER {
 		split := strings.Split(registryAddr, ",")
@@ -39,9 +41,9 @@ func NewConfigCenter(registryType string, registryAddr string,
 		}
 
 	} else if registryType == REGISTRY_ZOOKEEPER {
-		reg = NewZookeeper(registryAddr, []string{})
+		reg = NewZookeeper(registryAddr, services, true)
 	}
-	center := &ConfigCenter{registry: reg, services: services, hostport: hostport}
+	center := &ConfigCenter{registry: reg, services: services, hostport: hostport, groupId: groupId}
 	//如果是momokeeper则定时注册服务
 	if registryType == REGISTRY_MOMOKEEPER {
 		go func() {
@@ -50,7 +52,7 @@ func NewConfigCenter(registryType string, registryAddr string,
 				func() {
 					defer func() {
 						if err := recover(); nil != err {
-
+							log.ErrorLog("config_center", "ConfigCenter|RegisteAllServices|SUCC|%s", err)
 						}
 					}()
 					//注册一下服务
@@ -77,15 +79,15 @@ func (self ConfigCenter) RegisteAllServices() {
 }
 
 func (self ConfigCenter) RegisteService(serviceUri, hostport, protoType string) bool {
-	return self.registry.RegisteService(serviceUri, hostport, protoType)
+	return self.registry.RegisteService(serviceUri, hostport, protoType, self.groupId)
 }
 
 func (self ConfigCenter) UnRegisteService(serviceUri, hostport, protoType string) bool {
-	return self.registry.UnRegisteService(serviceUri, hostport, protoType)
+	return self.registry.UnRegisteService(serviceUri, hostport, protoType, self.groupId)
 }
 
 func (self ConfigCenter) GetService(serviceUri, protoType string) ([]string, error) {
-	return self.registry.GetService(serviceUri, protoType)
+	return self.registry.GetService(serviceUri, protoType, self.groupId)
 }
 
 func (self ConfigCenter) Destroy() {

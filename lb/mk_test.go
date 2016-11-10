@@ -16,49 +16,59 @@ type DemoResult struct {
 }
 
 type IHello interface {
-	GetService(serviceUri, proto string) (DemoResult, error)
+	GetService(serviceUri, proto, groupId string) (DemoResult, error)
 	// 注册
-	RegisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error)
+	RegisterService(serviceUri, hostPort, proto, groupId string, config map[string]string) (string, error)
 	// 注销
-	UnregisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error)
+	UnregisterService(serviceUri, hostPort, proto, groupId string, config map[string]string) (string, error)
+
+	IsIsolated(serviceUri, hostPort, proto, groupId string, config map[string]string) (bool, error)
 }
 
 type DemoParam struct {
 	Name string
 }
 
-type Demo struct {
+type Lookup struct {
 	hosts map[string][]string
 	uri   string
 }
 
-func (self Demo) GetService(serviceUri, proto string) (DemoResult, error) {
+func (self Lookup) GetService(serviceUri, proto, groupId string) (DemoResult, error) {
+	fmt.Printf("GetService|SUCC|%s|%s|%s|%v\n", serviceUri, groupId, proto, self.hosts)
 	result := DemoResult{}
-	val, _ := self.hosts[serviceUri+"_"+proto]
+	val, _ := self.hosts[serviceUri+"_"+proto+"_"+groupId]
 	result.Hosts = val
 	result.Uri = self.uri
-	fmt.Printf("GetService|SUCC|%s|%s|%s\n", serviceUri, proto, result)
+
 	return result, nil
 }
 
+func (self Lookup) IsIsolated(serviceUri, hostPort, proto, groupId string, config map[string]string) (bool, error) {
+	// delete(self.hosts, serviceUri+"_"+proto+"_"+groupId)
+	fmt.Printf("IsIsolated|SUCC|%s|%s|%s\n", serviceUri, proto, groupId)
+	return true, nil
+}
+
 // 注册
-func (self Demo) RegisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error) {
-	self.hosts[serviceUri+"_"+proto] = []string{hostPort + "?timeout=1000&version=2"}
-	fmt.Println("RegisterService|SUCC|" + serviceUri + "|" + proto)
+func (self Lookup) RegisterService(serviceUri, hostPort, proto, groupId string, config map[string]string) (string, error) {
+	fmt.Printf("RegisterService|SUCC|%s|%s|%s\n", serviceUri, proto, groupId)
+	self.hosts[serviceUri+"_"+proto+"_"+groupId] = []string{hostPort + "?timeout=1000&version=2&groupId=" + groupId}
+
 	return "SUCCESS", nil
 }
 
 // 注销
-func (self Demo) UnregisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error) {
-	delete(self.hosts, serviceUri+"_"+proto)
-	fmt.Println("UnregisterService|SUCC|" + serviceUri + "|" + proto)
+func (self Lookup) UnregisterService(serviceUri, hostPort, proto, groupId string, config map[string]string) (string, error) {
+	delete(self.hosts, serviceUri+"_"+proto+"_"+groupId)
+	fmt.Printf("UnregisterService|SUCC|%s|%s|%s\n", serviceUri, proto, groupId)
 	return "SUCCESS", nil
 }
 
 var app *core.Application
 
 func init() {
-	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
+	demo := Lookup{make(map[string][]string, 2), "/service/lookup"}
 	app = core.NewApplcation("../conf/cluster_test.toml", func() []proxy.Service {
 		return []proxy.Service{
 			proxy.Service{
@@ -74,8 +84,54 @@ func init() {
 
 }
 
+func TestOldRegisteService(t *testing.T) {
+	center := NewConfigCenter("momokeeper", "localhost:13000,localhost:13000", "localhost:12000", "*", nil)
+	succ := center.RegisteService("/service/bibi-profile", "localhost:12000", "redis")
+	if !succ {
+		t.Fail()
+	}
+
+	hosts, err := center.GetService("/service/bibi-profile", "redis")
+	if nil != err {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	if len(hosts) != 1 {
+		t.Log(hosts)
+		t.Fail()
+		return
+	}
+	if !strings.HasPrefix(hosts[0], "localhost:12000") {
+		t.Log(hosts[0])
+		t.Fail()
+		return
+	}
+
+	succ = center.UnRegisteService("/service/bibi-profile", "localhost:12000", "redis")
+	if !succ {
+		t.Log(succ)
+		t.Fail()
+		return
+	}
+
+	hosts, err = center.GetService("/service/bibi-profile", "redis")
+	if nil != err {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	if len(hosts) != 0 {
+		t.Log(hosts)
+		t.Fail()
+		return
+	}
+}
+
 func TestRegisteService(t *testing.T) {
-	center := NewConfigCenter("momokeeper", "localhost:13000,localhost:13000", "localhost:12000", nil)
+	center := NewConfigCenter("momokeeper", "localhost:13000,localhost:13000", "localhost:12000", "s-mts-group", nil)
 
 	succ := center.RegisteService("/service/bibi-profile", "localhost:12000", "redis")
 	if !succ {
@@ -119,5 +175,5 @@ func TestRegisteService(t *testing.T) {
 		t.Fail()
 		return
 	}
-
+	center.Destroy()
 }

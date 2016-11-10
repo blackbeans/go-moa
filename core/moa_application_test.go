@@ -1,7 +1,7 @@
 package core
 
 import (
-	"fmt"
+	// "fmt"
 	"github.com/blackbeans/go-moa/proxy"
 	"gopkg.in/redis.v3"
 	"testing"
@@ -13,11 +13,11 @@ type DemoResult struct {
 }
 
 type IHello interface {
-	GetService(serviceUri, proto string) (DemoResult, error)
+	GetService(serviceUri, proto, groupId string) (DemoResult, error)
 	// 注册
-	RegisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error)
+	RegisterService(serviceUri, hostPort, proto, groupId string, config map[string]string) (string, error)
 	// 注销
-	UnregisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error)
+	UnregisterService(serviceUri, hostPort, proto, groupId string, config map[string]string) (string, error)
 }
 
 type DemoParam struct {
@@ -29,26 +29,26 @@ type Demo struct {
 	uri   string
 }
 
-func (self Demo) GetService(serviceUri, proto string) (DemoResult, error) {
+func (self Demo) GetService(serviceUri, proto, groupId string) (DemoResult, error) {
 	result := DemoResult{}
-	val, _ := self.hosts[serviceUri+"_"+proto]
+	val, _ := self.hosts[serviceUri+"_"+proto+"_"+groupId]
 	result.Hosts = val
 	result.Uri = self.uri
-	fmt.Printf("GetService|SUCC|%s|%s|%s\n", serviceUri, proto, result)
+	//	fmt.Printf("GetService|SUCC|%s|%s|%s\n", serviceUri, proto, result)
 	return result, nil
 }
 
 // 注册
-func (self Demo) RegisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error) {
-	self.hosts[serviceUri+"_"+proto] = []string{hostPort + "?timeout=1000&version=2"}
-	fmt.Println("RegisterService|SUCC|" + serviceUri + "|" + proto)
+func (self Demo) RegisterService(serviceUri, hostPort, proto, groupId string, config map[string]string) (string, error) {
+	self.hosts[serviceUri+"_"+proto+"_"+groupId] = []string{hostPort + "?timeout=1000&version=2"}
+	//	fmt.Println("RegisterService|SUCC|" + serviceUri + "|" + proto)
 	return "SUCCESS", nil
 }
 
 // 注销
-func (self Demo) UnregisterService(serviceUri, hostPort, proto string, config map[string]string) (string, error) {
-	delete(self.hosts, serviceUri+"_"+proto)
-	fmt.Println("UnregisterService|SUCC|" + serviceUri + "|" + proto)
+func (self Demo) UnregisterService(serviceUri, hostPort, proto, groupId string, config map[string]string) (string, error) {
+	delete(self.hosts, serviceUri+"_"+proto+"_"+groupId)
+	//fmt.Println("UnregisterService|SUCC|" + serviceUri + "|" + proto)
 	return "SUCCESS", nil
 }
 
@@ -79,7 +79,7 @@ func TestApplication(t *testing.T) {
 	})
 	defer client.Close()
 
-	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"GetService\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
+	cmd := "{\"action\":\"/service/lookup\",\"params\":{\"m\":\"GetService\",\"args\":[\"fuck\",\"redis\",\"groupId\"]}}"
 	val, _ := client.Get(cmd).Result()
 	t.Log(val)
 	pong, err := client.Ping().Result()
@@ -95,7 +95,7 @@ func BenchmarkApplication(t *testing.B) {
 		DB:       0,  // use default DB
 	})
 	defer client.Close()
-	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"GetService\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
+	cmd := "{\"action\":\"/service/lookup\",\"params\":{\"m\":\"GetService\",\"args\":[\"fuck\",\"redis\",\"groupId\"]}}"
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
 		client.Get(cmd)

@@ -3,11 +3,10 @@ package lb
 import (
 	"encoding/json"
 	"errors"
-	"time"
-
 	"github.com/blackbeans/go-moa/protocol"
 	log "github.com/blackbeans/log4go"
 	"gopkg.in/redis.v3"
+	"time"
 )
 
 const (
@@ -16,8 +15,6 @@ const (
 	MK_REG_METHOD   = "registerService"
 	MK_UNREG_METHOD = "unregisterService"
 	MK_GET_METHOD   = "getService"
-	//boolean isIsolated(String hostport)
-	MK_ISOLATE_METHOD = "isIsolated"
 )
 
 type momokeeper struct {
@@ -55,29 +52,9 @@ type RegisterResp struct {
 	ErrCode    int         `json:"ec"`
 }
 
-func (self momokeeper) RegisteService(serviceUri, hostport, protoType string) bool {
+func (self momokeeper) RegisteService(serviceUri, hostport, protoType, groupId string) bool {
 
-	//is isolate
-	req := &protocol.MoaReqPacket{}
-	req.ServiceUri = MK_SERVICE_URI
-	req.Params.Method = MK_ISOLATE_METHOD
 	args := make([]interface{}, 0, 3)
-	args = append(args, hostport)
-	req.Params.Args = args
-
-	tmp, err := self.invokeResponse(self.regClient, MK_ISOLATE_METHOD, req)
-	if nil != err {
-		log.ErrorLog("config_center", "momokeeper|RegisteService|ISISOLATE|FAIL|%s|%s|%s|%s",
-			err, hostport, serviceUri, protoType)
-	} else {
-		isolate, ok := tmp.(bool)
-		//hostport was isIsolated
-		if ok && isolate {
-			log.InfoLog("config_center", "momokeeper|RegisteService|ISOLATE|%s|%s|%s", hostport, serviceUri, protoType)
-			return true
-		}
-	}
-
 	cmd := &protocol.MoaReqPacket{}
 	cmd.ServiceUri = MK_SERVICE_URI
 	cmd.Params.Method = MK_REG_METHOD
@@ -85,9 +62,18 @@ func (self momokeeper) RegisteService(serviceUri, hostport, protoType string) bo
 	args = append(args, serviceUri)
 	args = append(args, hostport)
 	args = append(args, protoType)
-	args = append(args, make(map[string]interface{}, 0))
+
+	//only groupId is not equals to  '*'
+	if len(groupId) > 0 && ALL_GROUP != groupId {
+		args = append(args, groupId)
+	} else {
+		args = append(args, "")
+	}
+
+	extArgs := make(map[string]interface{}, 0)
+	args = append(args, extArgs)
 	cmd.Params.Args = args
-	_, err = self.invokeResponse(self.regClient, MK_REG_METHOD, cmd)
+	_, err := self.invokeResponse(self.regClient, MK_REG_METHOD, cmd)
 	if nil == err {
 		log.InfoLog("config_center", "momokeeper|RegisteService|SUCC|%s|%s|%s", hostport, serviceUri, protoType)
 		return true
@@ -121,7 +107,7 @@ func (self momokeeper) invokeResponse(c *redis.Client, method string, req *proto
 	}
 }
 
-func (self momokeeper) UnRegisteService(serviceUri, hostport, protoType string) bool {
+func (self momokeeper) UnRegisteService(serviceUri, hostport, protoType, groupId string) bool {
 	cmd := &protocol.MoaReqPacket{}
 	cmd.ServiceUri = MK_SERVICE_URI
 	cmd.Params.Method = MK_UNREG_METHOD
@@ -129,7 +115,16 @@ func (self momokeeper) UnRegisteService(serviceUri, hostport, protoType string) 
 	args = append(args, serviceUri)
 	args = append(args, hostport)
 	args = append(args, protoType)
-	args = append(args, make(map[string]interface{}, 0))
+
+	//only groupId is not equals to  '*'
+	if len(groupId) > 0 && ALL_GROUP != groupId {
+		args = append(args, groupId)
+	} else {
+		args = append(args, "")
+	}
+
+	extArgs := make(map[string]interface{}, 0)
+	args = append(args, extArgs)
 	cmd.Params.Args = args
 	_, err := self.invokeResponse(self.regClient, MK_UNREG_METHOD, cmd)
 	if nil == err {
@@ -142,13 +137,21 @@ func (self momokeeper) UnRegisteService(serviceUri, hostport, protoType string) 
 
 }
 
-func (self momokeeper) GetService(serviceUri, protoType string) ([]string, error) {
+func (self momokeeper) GetService(serviceUri, protoType, groupId string) ([]string, error) {
 	cmd := &protocol.MoaReqPacket{}
 	cmd.ServiceUri = MK_LOOKUP
 	cmd.Params.Method = MK_GET_METHOD
 	args := make([]interface{}, 0, 3)
 	args = append(args, serviceUri)
 	args = append(args, protoType)
+
+	//only groupId is not equals to  '*'
+	if len(groupId) > 0 && ALL_GROUP != groupId {
+		args = append(args, groupId)
+	} else {
+		args = append(args, "")
+	}
+
 	cmd.Params.Args = args
 	resp, err := self.invokeResponse(self.lookupClient, MK_GET_METHOD, cmd)
 
@@ -183,5 +186,6 @@ func (self momokeeper) GetService(serviceUri, protoType string) ([]string, error
 }
 
 func (self momokeeper) Destroy() {
-
+	self.lookupClient.Close()
+	self.regClient.Close()
 }

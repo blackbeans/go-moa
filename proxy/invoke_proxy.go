@@ -20,7 +20,8 @@ type MethodMeta struct {
 }
 
 type Service struct {
-	ServiceUri string
+	ServiceUri string //serviceUr对应的服务名称
+	GroupId    string //该服务的分组
 	Interface  interface{}
 	Instance   interface{}
 	//方法名称反射对应的方法
