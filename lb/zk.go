@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/blackbeans/go-moa/proxy"
 	"github.com/blackbeans/go-zookeeper/zk"
 	log "github.com/blackbeans/log4go"
 	"regexp"
@@ -20,14 +19,14 @@ const (
 )
 
 type zookeeper struct {
-	service     []proxy.Service
+	service     []string
 	zkManager   *ZKManager
 	uri2Hosts   map[string][]string
 	lock        sync.RWMutex
 	serverModel bool
 }
 
-func NewZookeeper(regAddr string, service []proxy.Service, serverModel bool) *zookeeper {
+func NewZookeeper(regAddr string, service []string, serverModel bool) *zookeeper {
 
 	zkManager := NewZKManager(regAddr)
 	uri2Hosts := make(map[string][]string, 2)
@@ -42,10 +41,7 @@ func NewZookeeper(regAddr string, service []proxy.Service, serverModel bool) *zo
 		for _, uri := range service {
 
 			// 初始化，由于客户端订阅延迟，需要主动监听节点事件，然后主动从zk上拉取一次，放入缓存
-			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL)
-			serviceUri := buildServiceUri(uri.ServiceUri, uri.GroupId)
-			//has groupId
-			servicePath = concat(servicePath, serviceUri)
+			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
 
 			flag := zkManager.RegisteWatcher(servicePath, zoo)
 
@@ -56,7 +52,7 @@ func NewZookeeper(regAddr string, service []proxy.Service, serverModel bool) *zo
 				log.ErrorLog("config_center", "zookeeper|NewZookeeper|init uri2hosts|FAIL|%s", servicePath)
 			} else {
 				sort.Strings(hosts)
-				uri2Hosts[serviceUri] = hosts
+				uri2Hosts[uri] = hosts
 			}
 		}
 	} else {
@@ -170,8 +166,7 @@ func (self zookeeper) OnSessionExpired() {
 		// 客户端需要重新订阅
 		conn := self.zkManager.session
 		for _, uri := range self.service {
-			serviceUri := buildServiceUri(uri.ServiceUri, uri.GroupId)
-			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, serviceUri)
+			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
 			conn.ChildrenW(servicePath)
 		}
 		log.InfoLog("config_center", "zookeeper|OnSessionExpired|%v", self.serverModel)

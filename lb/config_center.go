@@ -41,7 +41,11 @@ func NewConfigCenter(registryType, registryAddr,
 		}
 
 	} else if registryType == REGISTRY_ZOOKEEPER {
-		reg = NewZookeeper(registryAddr, services, true)
+		uris := make([]string, 0, 10)
+		for _, s := range services {
+			uris = append(uris, buildServiceUri(s.ServiceUri, s.GroupId))
+		}
+		reg = NewZookeeper(registryAddr, uris, true)
 	}
 	center := &ConfigCenter{registry: reg, services: services, hostport: hostport, groupId: groupId}
 	//如果是momokeeper则定时注册服务

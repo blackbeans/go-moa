@@ -1,8 +1,6 @@
 package lb
 
 import (
-	"github.com/blackbeans/go-moa/proxy"
-
 	"testing"
 	"time"
 )
@@ -15,10 +13,7 @@ func TestOldZKRegisteService(t *testing.T) {
 	protocol := "redis"
 	hostport := "localhost:18000"
 
-	registry := NewZookeeper(regAddr, []proxy.Service{
-		proxy.Service{
-			ServiceUri: serviceUri,
-			GroupId:    "*"}}, false)
+	registry := NewZookeeper(regAddr, []string{serviceUri}, false)
 
 	registry.RegisteService(serviceUri, hostport, "redis", "*")
 
@@ -61,10 +56,8 @@ func TestGroupZKRegisteService(t *testing.T) {
 	hostport := "localhost:18000"
 	groupId := "s-mts-group"
 
-	registry := NewZookeeper(regAddr, []proxy.Service{
-		proxy.Service{
-			ServiceUri: serviceUri,
-			GroupId:    "s-mts-group"}}, false)
+	groupUri := buildServiceUri("/service/bibi-profile", "s-mts-group")
+	registry := NewZookeeper(regAddr, []string{groupUri}, false)
 
 	registry.RegisteService(serviceUri, hostport, protocol, groupId)
 	time.Sleep(10 * time.Second)
