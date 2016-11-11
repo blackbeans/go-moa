@@ -3,7 +3,7 @@
     <tag>stdout</tag>
     <type>file</type>
     <property name="filename">./logs/moa_server_stdout.log</property>
-    <property name="format">[%D %T] [%L] (%S) %M</property>
+    <property name="format">[%D %T] [%L] %M</property>
     <property name="rotate">true</property>
     <property name="maxsize">100M</property>
     <property name="maxlines">10M</property>
@@ -25,7 +25,7 @@
        %S - Source
        %M - Message
        It ignores unknown format strings (and removes them)
-       Recommended: "[%D %T] [%L] (%S) %M"
+       Recommended: "[%D %T] [%L] [%S] %M"
     -->
     <property name="format">[%D %T] [%L] %M</property>
     <property name="rotate">true</property> <!-- true enables log rotation, otherwise append -->
@@ -71,7 +71,7 @@
     <type>file</type>
     <level>ERROR</level>
     <property name="filename">./logs/moa_error.log</property>
-    <property name="format">[%D %T] [%L] (%S) %M</property>
+    <property name="format">[%D %T] [%L]  %M</property>
     <property name="rotate">true</property>
     <property name="maxsize">100M</property>
     <property name="maxlines">10M</property>
@@ -82,7 +82,7 @@
     <type>file</type>
     <level>INFO</level>
     <property name="filename">./logs/moa-stat.log</property>
-    <property name="format">[%D %T] [%L] (%S) %M</property>
+    <property name="format">[%D %T] [%L]  %M</property>
     <property name="rotate">true</property>
     <property name="maxsize">100M</property>
     <property name="maxlines">10M</property>
@@ -94,7 +94,7 @@
     <type>file</type>
     <level>INFO</level>
     <property name="filename">./logs/moa-server.log</property>
-    <property name="format">[%D %T] [%L] (%S) %M</property>
+    <property name="format">[%D %T] [%L]  %M</property>
     <property name="rotate">true</property>
     <property name="maxsize">100M</property>
     <property name="maxlines">10M</property>
@@ -107,7 +107,7 @@
     <type>file</type>
     <level>INFO</level>
     <property name="filename">./logs/config_center.log</property>
-    <property name="format">[%D %T] [%L] (%S) %M</property>
+    <property name="format">[%D %T] [%L] %M</property>
     <property name="rotate">true</property>
     <property name="maxsize">100M</property>
     <property name="maxlines">10M</property>
