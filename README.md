@@ -47,7 +47,8 @@
     
     ```
     go get  github.com/blackbeans/go-moa/core
-    go get  github.com/blackbeans/go-moa/proxy
+    go get  github.com/blackbeans/go-moa/lb
+    go get  github.com/blackbeans/go-moa/protocol
     ```
    
    * 定义服务的接口对应

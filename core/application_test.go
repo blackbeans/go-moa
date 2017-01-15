@@ -1,9 +1,8 @@
 package core
 
 import (
-	// "fmt"
-	"github.com/blackbeans/go-moa/proxy"
-	"gopkg.in/redis.v3"
+	"errors"
+	"gopkg.in/redis.v5"
 	"testing"
 )
 
@@ -14,6 +13,8 @@ type DemoResult struct {
 
 type IHello interface {
 	GetService(serviceUri, proto, groupId string) (DemoResult, error)
+
+	HelloError(text string) (DemoResult, error)
 	// 注册
 	RegisterService(serviceUri, hostPort, proto, groupId string, config map[string]string) (string, error)
 	// 注销
@@ -52,16 +53,20 @@ func (self Demo) UnregisterService(serviceUri, hostPort, proto, groupId string, 
 	return "SUCCESS", nil
 }
 
+func (self Demo) HelloError(text string) (DemoResult, error) {
+	return DemoResult{}, errors.New(text)
+}
+
 func init() {
 	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
 	inter := (*IHello)(nil)
-	NewApplcation("../conf/cluster_test.toml", func() []proxy.Service {
-		return []proxy.Service{
-			proxy.Service{
+	NewApplcation("../conf/cluster_test.toml", func() []Service {
+		return []Service{
+			Service{
 				ServiceUri: "/service/lookup",
 				Instance:   demo,
 				Interface:  inter},
-			proxy.Service{
+			Service{
 				ServiceUri: "/service/moa-admin",
 				Instance:   demo,
 				Interface:  inter},
@@ -83,8 +88,11 @@ func TestApplication(t *testing.T) {
 	val, _ := client.Get(cmd).Result()
 	t.Log(val)
 	pong, err := client.Ping().Result()
-	t.Logf("pong:%s,err:%s\n", pong, err)
-
+	t.Logf("pong:%s,err:%v\n", pong, err)
+	//test error
+	cmd = "{\"action\":\"/service/lookup\",\"params\":{\"m\":\"HelloError\",\"args\":[\"fuck\"]}}"
+	val, _ = client.Get(cmd).Result()
+	t.Log(val)
 }
 
 func BenchmarkApplication(t *testing.B) {

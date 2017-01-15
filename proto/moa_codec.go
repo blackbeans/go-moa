@@ -1,14 +1,13 @@
-package protocol
+package proto
 
 import (
 	"bufio"
 	"bytes"
 	b "encoding/binary"
-	// "errors"
+	"errors"
 	"fmt"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo/packet"
-	"github.com/go-errors/errors"
 	"strconv"
 )
 
@@ -39,23 +38,19 @@ type RedisGetCodec struct {
 
 //读取数据
 func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
-
+	var buff *bytes.Buffer
+	var err error
 	defer func() {
-		if err := recover(); nil != err {
-			er, ok := err.(*errors.Error)
-			if ok {
-				stack := er.ErrorStack()
-				log.ErrorLog("moa-server", "RedisGetCodec|Read|ERROR|%s", stack)
-			} else {
-				log.ErrorLog("moa-server", "RedisGetCodec|Read|ERROR|%v", er)
-			}
+		if er := recover(); nil != er {
+			log.ErrorLog("moa-server", "RedisGetCodec|Read|ERROR|%v", err)
+			err = fmt.Errorf("%v", er)
 		}
 
 	}()
-
-	line, _, err := reader.ReadLine()
+	var line []byte
+	line, _, err = reader.ReadLine()
 	if nil != err {
-		return nil, err
+		return buff, err
 	}
 
 	if line[0] == '*' {
@@ -67,15 +62,17 @@ func (self RedisGetCodec) Read(reader *bufio.Reader) (*bytes.Buffer, error) {
 			//去掉第一个字符'+'或者'*'或者'$'
 			reader.Discard(1)
 			//获取count
-			length, err := self.getCount(reader)
+			length := 0
+			length, err = self.getCount(reader)
 			if nil != err {
 				return nil, err
 			}
-			buff, err := self.readData(length, reader)
+			var buffData []byte
+			buffData, err = self.readData(length, reader)
 			if nil != err {
 				return nil, err
 			}
-			params = append(params, buff)
+			params = append(params, buffData)
 		}
 
 		cmdType := bytes.ToUpper(params[0][4 : len(params[0])-1])

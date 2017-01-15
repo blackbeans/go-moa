@@ -1,4 +1,4 @@
-package log4moa
+package core
 
 import (
 	"fmt"

@@ -19,11 +19,10 @@ type HostPort struct {
 //配置信息
 type Option struct {
 	Env struct {
-		Name         string
-		RunMode      string
-		BindAddress  string
-		RegistryType string
-		GroupId      string
+		Name        string
+		RunMode     string
+		BindAddress string
+		GroupId     string
 	}
 
 	//使用的环境
@@ -48,7 +47,6 @@ type Cluster struct {
 type MOAOption struct {
 	name              string
 	groupId           string //服务分组Uri
-	registryType      string
 	registryHosts     string
 	hostport          string
 	processTimeout    time.Duration
@@ -182,7 +180,6 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 	mop.name = option.Env.Name
 	mop.groupId = option.Env.GroupId
 	mop.hostport = option.Env.BindAddress
-	mop.registryType = option.Env.RegistryType
 	mop.registryHosts = reg.Hosts
 	mop.processTimeout = time.Duration(int64(cluster.ProcessTimeout) * int64(time.Second))
 	mop.maxDispatcherSize = cluster.MaxDispatcherSize //最大分发处理协程数

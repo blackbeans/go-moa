@@ -2,10 +2,7 @@ package core
 
 import (
 	"fmt"
-	"github.com/blackbeans/go-moa/lb"
-	"github.com/blackbeans/go-moa/log4moa"
-	"github.com/blackbeans/go-moa/protocol"
-	"github.com/blackbeans/go-moa/proxy"
+	"github.com/blackbeans/go-moa/proto"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 	"github.com/blackbeans/turbo/client"
@@ -17,26 +14,26 @@ import (
 	_ "net/http/pprof"
 )
 
-type ServiceBundle func() []proxy.Service
+type ServiceBundle func() []Service
 
 type Application struct {
 	remoting      *server.RemotingServer
-	invokeHandler *proxy.InvocationHandler
+	invokeHandler *InvocationHandler
 	options       *MOAOption
-	configCenter  *lb.ConfigCenter
-	moaStat       *log4moa.MoaStat
+	configCenter  *ConfigCenter
+	moaStat       *MoaStat
 }
 
 func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 	return NewApplicationWithAlarm(configPath, bundle,
-		func(serviceUri, hostname string, moaInfo log4moa.MoaInfo) {
+		func(serviceUri, hostname string, moaInfo MoaInfo) {
 			//do nothing
 		})
 }
 
 //with alarm
 func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
-	monitor func(serviceUri, host string, moainfo log4moa.MoaInfo)) *Application {
+	monitor func(serviceUri, host string, moainfo MoaInfo)) *Application {
 	services := bundle()
 
 	options, err := LoadConfiruation(configPath)
@@ -44,7 +41,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		panic(err)
 	}
 
-	cloneServs := make([]proxy.Service, 0, len(services))
+	cloneServs := make([]Service, 0, len(services))
 
 	for i, s := range services {
 		s.GroupId = options.groupId
@@ -64,24 +61,23 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	//需要开发对应的codec
 	cf := func() codec.ICodec {
-		return protocol.RedisGetCodec{32 * 1024}
+		return proto.RedisGetCodec{32 * 1024}
 	}
 
 	//创建注册服务
-	configCenter := lb.NewConfigCenter(options.registryType,
-		options.registryHosts, options.hostport, options.groupId, services)
+	configCenter := NewConfigCenter(options.registryHosts, options.hostport, options.groupId, services)
 
 	app := &Application{}
 	app.options = options
 	app.configCenter = configCenter
 	//moastat
-	moaStat := log4moa.NewMoaStat(options.hostport, services[0].ServiceUri, monitor, func() turbo.NetworkStat {
+	moaStat := NewMoaStat(options.hostport, services[0].ServiceUri, monitor, func() turbo.NetworkStat {
 		return app.remoting.NetworkStat()
 
 	})
 	app.moaStat = moaStat
 
-	app.invokeHandler = proxy.NewInvocationHandler(services, moaStat)
+	app.invokeHandler = NewInvocationHandler(services, moaStat)
 
 	//启动remoting
 	remoting := server.NewRemotionServerWithCodec(options.hostport, rc, cf,
@@ -124,35 +120,61 @@ func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p 
 	}()
 
 	//如果是get命令
-	if p.Header.CmdType == protocol.GET {
+	if p.Header.CmdType == proto.GET {
 		//这里面根据解析包的内容得到调用不同的service获得结果
-		req, err := protocol.Wrap2MoaRawRequest(p.Data)
+		req, err := proto.Wrap2MoaRawRequest(p.Data)
 		if nil != err {
-			log.ErrorLog("moa-server", "Application|packetDispatcher|Wrap2MoaRequest|FAIL|%s|%s", err, string(p.Data))
+
+			log.ErrorLog("moa-server", "Application|Invalid proto|%v|%s|%s", err, string(p.Data), remoteClient.RemoteAddr())
+			remoteClient.Shutdown()
+			return
 		} else {
 			req.Source = remoteClient.RemoteAddr()
 			req.Channel = remoteClient.AttachChannel
 			req.Timeout = self.options.processTimeout
 			result := self.invokeHandler.Invoke(req)
-			resp, err := protocol.Wrap2ResponsePacket(p, result)
+
+			resp, err := proto.Wrap2ResponsePacket(p, result)
 			if nil != err {
-				log.ErrorLog("moa-server", "Application|packetDispatcher|Wrap2ResponsePacket|FAIL|%s|%s", err, result)
+				log.ErrorLog("moa-server", "Application|Wrap2ResponsePacket|FAIL|%v|%s|%s|%v",
+					err, string(p.Data), remoteClient.RemoteAddr(), *result)
+				remoteClient.Shutdown()
+				return
+			} else if nil != result && result.ErrCode == proto.CODE_TIMEOUT_SERVER {
+				//如果是超时的结果那么久直接关闭本次链接
+				log.ErrorLog("moa-server", "Application|Invoke|Timeout|%v", err, *req)
+				remoteClient.Write(*resp)
+				remoteClient.Shutdown()
+				return
 			} else {
 				remoteClient.Write(*resp)
 				//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
 			}
+
 		}
 
-	} else if p.Header.CmdType == protocol.PING {
+	} else if p.Header.CmdType == proto.PING {
 		//PING 协议 不做人事事情
-		resp, _ := protocol.Wrap2ResponsePacket(p, "PONG")
+		resp, err := proto.Wrap2ResponsePacket(p, "PONG")
+		if nil != err {
+			log.ErrorLog("moa-server", "Application|PongResponse|FAIL|%v|%v|%s",
+				err, p.Header, remoteClient.RemoteAddr())
+			remoteClient.Shutdown()
+			return
+		}
 		remoteClient.Write(*resp)
-	} else if p.Header.CmdType == protocol.INFO {
+	} else if p.Header.CmdType == proto.INFO {
 		//INFO 协议，返回服务端信息
 		stat := make(map[string]interface{}, 2)
 		stat["network"] = self.remoting.NetworkStat()
 		stat["moa"] = self.moaStat.GetMoaInfo()
-		resp, _ := protocol.Wrap2ResponsePacket(p, stat)
+		resp, err := proto.Wrap2ResponsePacket(p, stat)
+		if nil != err {
+			log.ErrorLog("moa-server", "Application|PongResponse|FAIL|%v|%v|%s",
+				err, p.Header, remoteClient.RemoteAddr())
+			remoteClient.Shutdown()
+			return
+		}
 		remoteClient.Write(*resp)
 	}
 
