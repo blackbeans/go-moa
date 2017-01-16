@@ -4,7 +4,6 @@ import (
 	"fmt"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
-	"github.com/go-errors/errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -63,16 +62,7 @@ func (self *MoaStat) StartLog() {
 	go func() {
 		defer func() {
 			if err := recover(); nil != err {
-				var e error
-				er, ok := err.(*errors.Error)
-				if ok {
-					stack := er.ErrorStack()
-					e = errors.New(stack)
-				} else {
-					e = errors.New(fmt.Sprintf("time.ticker Call Err %s", err))
-				}
-
-				log.ErrorLog("stderr", "time.ticker|Invoke|FAIL|%s", e)
+				log.ErrorLog("stderr", "time.ticker|Invoke|FAIL|%v", err)
 				// 销毁定时器
 				self.Destory()
 			}
