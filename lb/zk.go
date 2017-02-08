@@ -128,13 +128,6 @@ func (self *ZKManager) listenEvent() {
 		case zk.EventSession:
 			if change.State == zk.StateExpired || change.State == zk.StateDisconnected {
 				log.WarnLog("moa_service", "ZKManager|OnSessionExpired!|Reconnect Zk ....")
-				//阻塞等待重连任务成功
-				succ := <-self.reconnect()
-				if !succ {
-					log.WarnLog("moa_service", "ZKManager|OnSessionExpired|Reconnect Zk|FAIL| ....")
-					continue
-				}
-
 				//session失效必须通知所有的watcher
 				func() {
 					for _, w := range self.wathcers {
@@ -160,53 +153,6 @@ func (self *ZKManager) listenEvent() {
 
 		}
 	}
-}
-
-/*
-*重连zk
- */
-func (self *ZKManager) reconnect() <-chan bool {
-	ch := make(chan bool, 1)
-	go func() {
-
-		reconnTimes := int64(0)
-		f := func(times time.Duration) error {
-			ss, eventChan, err := zk.Connect(strings.Split(self.zkhosts, ","), 5*time.Second)
-			if nil != err {
-				log.WarnLog("moa_service", "Zk Reconneting FAIL|%ds", times.Seconds())
-				return err
-			} else {
-				log.InfoLog("moa_service", "Zk Reconneting SUCC....")
-				//初始化当前的状态
-				self.session = ss
-				self.eventChan = eventChan
-
-				ch <- true
-				close(ch)
-				return nil
-			}
-
-		}
-		//启动重连任务
-		for !self.isClose {
-			duration := time.Duration(reconnTimes * time.Second.Nanoseconds())
-			select {
-			case <-time.After(duration):
-				err := f(duration)
-				if nil != err {
-					reconnTimes += 1
-				} else {
-					//重连成功则推出
-					break
-				}
-			}
-		}
-
-		//失败
-		ch <- false
-		close(ch)
-	}()
-	return ch
 }
 
 func (self *ZKManager) Close() {
