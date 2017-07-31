@@ -2,6 +2,10 @@ package core
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/blackbeans/go-moa/proto"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
@@ -9,9 +13,6 @@ import (
 	"github.com/blackbeans/turbo/codec"
 	"github.com/blackbeans/turbo/packet"
 	"github.com/blackbeans/turbo/server"
-	"net"
-	"net/http"
-	_ "net/http/pprof"
 )
 
 type ServiceBundle func() []Service
@@ -61,7 +62,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	//需要开发对应的codec
 	cf := func() codec.ICodec {
-		return proto.RedisGetCodec{32 * 1024}
+		return proto.BinaryCodec{64 * 1024}
 	}
 
 	//创建注册服务
@@ -120,46 +121,34 @@ func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p 
 	}()
 
 	//如果是get命令
-	if p.Header.CmdType == proto.GET {
+	if p.Header.CmdType == proto.REQ {
+
+		req := p.PayLoad.(proto.MoaRawReqPacket)
+
 		//这里面根据解析包的内容得到调用不同的service获得结果
-		req, err := proto.Wrap2MoaRawRequest(p.Data)
-		if nil != err {
+		req.Source = remoteClient.RemoteAddr()
+		req.Channel = remoteClient.AttachChannel
+		req.Timeout = self.options.processTimeout
+		result := self.invokeHandler.Invoke(&req)
 
-			log.ErrorLog("moa-server", "Application|Invalid proto|%v|%s|%s", err, string(p.Data), remoteClient.RemoteAddr())
-			remoteClient.Shutdown()
+		resp := packet.NewRespPacket(p.Header.Opaque, proto.RESP, nil)
+		resp.PayLoad = *result
+		if nil != result && result.ErrCode == proto.CODE_TIMEOUT_SERVER {
+			//如果是超时的结果那么久直接
+			log.ErrorLog("moa-server", "Application|Invoke|Timeout|%v", req)
+			remoteClient.Write(*resp)
 			return
-		} else {
-			req.Source = remoteClient.RemoteAddr()
-			req.Channel = remoteClient.AttachChannel
-			req.Timeout = self.options.processTimeout
-			result := self.invokeHandler.Invoke(req)
-
-			resp, err := proto.Wrap2ResponsePacket(p, result)
-			if nil != err {
-				log.ErrorLog("moa-server", "Application|Wrap2ResponsePacket|FAIL|%v|%s|%s|%v",
-					err, string(p.Data), remoteClient.RemoteAddr(), *result)
-				remoteClient.Shutdown()
-				return
-			} else if nil != result && result.ErrCode == proto.CODE_TIMEOUT_SERVER {
-				//如果是超时的结果那么久直接关闭本次链接
-				log.ErrorLog("moa-server", "Application|Invoke|Timeout|%v", err, *req)
-				remoteClient.Write(*resp)
-				remoteClient.Shutdown()
-				return
-			} else {
-				remoteClient.Write(*resp)
-				//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
-			}
-
 		}
 
+		remoteClient.Write(*resp)
+		//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
+
 	} else if p.Header.CmdType == proto.PING {
-		//PING 协议 不做人事事情
+		//PING 协议
 		resp, err := proto.Wrap2ResponsePacket(p, "PONG")
 		if nil != err {
 			log.ErrorLog("moa-server", "Application|PongResponse|FAIL|%v|%v|%s",
 				err, p.Header, remoteClient.RemoteAddr())
-			remoteClient.Shutdown()
 			return
 		}
 		remoteClient.Write(*resp)

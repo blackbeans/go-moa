@@ -2,8 +2,9 @@ package proto
 
 import (
 	"encoding/json"
-	"github.com/blackbeans/turbo/packet"
 	"time"
+
+	"github.com/blackbeans/turbo/packet"
 )
 
 type MoaReqPacket struct {
