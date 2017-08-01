@@ -2,23 +2,18 @@
 
 #### 简介
     * 基于zk做地址发现
-    * 基于redis的get、ping、info协议构建协议通讯
-    * 使用json序列化协议满足良好跨语言兼容性
-    * 使用当前众多语言的redisclient即可以完成客户端开发。
+    * 基于turbo协议
+    * 使用json序列化协议作为传用户协议传输满足良好跨语言兼容性
     * 基于GroupId划分同服务下的服务，满足初步的治理需要
 
 #### 使用样例
    [样例参考](https://github.com/blackbeans/go-moa-demo)
 
-#### Redis协议简介
+#### MOA协议简介
 
-   * 可以使用redis-cli -h -p get/ping/info 命令访问服务或发起服务调用
+   * 基于turbo的二进制协议(https://github.com/blackbeans/turbo/packet)
 
-   * Get
-   
-   exp:
-
-      get {"action":"/service/bibi/go-moa","params":{"m":"setName","args":["a"]}}
+   * {"action":"/service/bibi/go-moa","params":{"m":"setName","args":["a"]}}
       
       action:理解为服务名称（service-uri）
       
@@ -30,16 +25,6 @@
      
        同 Redis的PING返回PONG
 
-   * INFO
-   
-      同 Redis的INFO，返回MOA和网络状态(json数据moa与network节点)。
-
-      exp:
-      
-        {"moa":{"recv":0,"proc":0,"error":0},"network":{"read_count":1,"read_bytes":9,"write_count":0,"write_bytes":0,"dispatcher_go":1,"connections":1}}
-
-
-
 #### 安装：
     
    安装ZooKeeper
@@ -49,6 +34,7 @@
     go get  github.com/blackbeans/go-moa/core
     go get  github.com/blackbeans/go-moa/lb
     go get  github.com/blackbeans/go-moa/protocol
+    
     ```
    
    * 定义服务的接口对应
