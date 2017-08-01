@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"strings"
 
 	"github.com/blackbeans/go-moa/proto"
 	log "github.com/blackbeans/log4go"
@@ -60,9 +61,15 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		options.idleDuration,
 		50*10000)
 
+	//是否启用snappy
+	snappy := false
+	if strings.ToLower(options.compress) == "snappy" {
+		snappy = true
+	}
+
 	//需要开发对应的codec
 	cf := func() codec.ICodec {
-		return proto.BinaryCodec{64 * 1024}
+		return proto.BinaryCodec{MaxFrameLength: 64 * 1024, SnappyCompress: snappy}
 	}
 
 	//创建注册服务

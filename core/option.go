@@ -2,14 +2,15 @@ package core
 
 import (
 	"errors"
-	log "github.com/blackbeans/log4go"
-	"github.com/naoina/toml"
 	"io/ioutil"
 	"net"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	log "github.com/blackbeans/log4go"
+	"github.com/naoina/toml"
 )
 
 type HostPort struct {
@@ -40,12 +41,14 @@ type Cluster struct {
 	WriteBufferSize   int    //=16 * 1024 //写入缓冲大小
 	WriteChannelSize  int    //=1000 //写异步channel长度
 	ReadChannelSize   int    //=1000 //读异步channel长度
+	Compress          string // compres=snappy
 	LogFile           string //log4go的文件路径
 }
 
 //---------最终需要的Option
 type MOAOption struct {
 	name              string
+	compress          string
 	groupId           string //服务分组Uri
 	registryHosts     string
 	hostport          string
@@ -188,6 +191,7 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 	mop.writeChannelSize = cluster.WriteChannelSize   //写异步channel长度
 	mop.readChannelSize = cluster.ReadChannelSize     //读异步channel长度
 	mop.idleDuration = 60 * time.Second
+	mop.compress = cluster.Compress
 	return mop, nil
 
 }

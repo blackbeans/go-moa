@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 
 	"github.com/blackbeans/log4go"
-
 	"github.com/blackbeans/turbo/packet"
+	"github.com/golang/snappy"
 )
 
 const (
@@ -16,13 +16,54 @@ const (
 	INFO = byte(0x05)
 )
 
+const (
+	COMPRESS_SNAPPY = 0x01 //snappy算法
+)
+
 type BinaryCodec struct {
 	MaxFrameLength int
+	SnappyCompress bool
+}
+
+//snappy解压缩
+func Decompress(src []byte) ([]byte, error) {
+	l, err := snappy.DecodedLen(src)
+	if nil != err {
+		return nil, err
+	}
+	if l%256 != 0 {
+		l = (l/256 + 1) * 256
+	}
+	dest := make([]byte, l)
+	decompressData, err := snappy.Decode(dest, src)
+	return decompressData, err
+}
+
+//snapp压缩
+func Compress(src []byte) []byte {
+	l := snappy.MaxEncodedLen(len(src))
+	if l%256 != 0 {
+		l = (l/256 + 1) * 256
+	}
+
+	dest := make([]byte, l)
+	compressData := snappy.Encode(dest, src)
+	return compressData
 }
 
 //反序列化
 //包装为packet，但是头部没有信息
 func (self BinaryCodec) UnmarshalPacket(p packet.Packet) (*packet.Packet, error) {
+
+	useSnappy := p.Header.Extension & COMPRESS_SNAPPY
+	//使用snap
+	if useSnappy == COMPRESS_SNAPPY {
+		d, err := Decompress(p.Data)
+		if nil != err {
+			return nil, err
+		}
+		p.Data = d
+	}
 
 	if p.Header.CmdType == REQ {
 		//req
@@ -83,6 +124,14 @@ func (self BinaryCodec) MarshalPacket(p packet.Packet) ([]byte, error) {
 		}
 		p.Data = data
 
+	}
+
+	//使用snap
+	if self.SnappyCompress {
+		//设置snappy压缩
+		p.Header.Extension = (p.Header.Extension | COMPRESS_SNAPPY)
+		d := Compress(p.Data)
+		p.Data = d
 	}
 	resp := p.Marshal()
 	return resp, nil
