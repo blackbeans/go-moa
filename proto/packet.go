@@ -7,6 +7,10 @@ import (
 	"github.com/blackbeans/turbo/packet"
 )
 
+type PiPo struct {
+	Timestamp int64 `json:"timestamp"`
+}
+
 type MoaReqPacket struct {
 	ServiceUri string `json:"action"`
 	Params     struct {

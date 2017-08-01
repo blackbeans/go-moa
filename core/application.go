@@ -152,9 +152,12 @@ func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p 
 
 	} else if p.Header.CmdType == proto.PING {
 		//PING 协议
-		// resp, err := proto.Wrap2ResponsePacket(p, "PONG")
+		pipo, ok := p.PayLoad.(proto.PiPo)
+		if ok {
+			remoteClient.Pong(p.Header.Opaque, pipo.Timestamp)
+		}
 		resp := packet.NewRespPacket(p.Header.Opaque, proto.PONG, nil)
-		resp.PayLoad = p.PayLoad
+		resp.PayLoad = pipo
 		remoteClient.Write(*resp)
 	} else if p.Header.CmdType == proto.INFO {
 		//INFO 协议，返回服务端信息

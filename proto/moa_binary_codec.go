@@ -74,7 +74,7 @@ func (self BinaryCodec) UnmarshalPacket(p packet.Packet) (*packet.Packet, error)
 		p.PayLoad = *req
 	} else if p.Header.CmdType == PING || p.Header.CmdType == PONG {
 		//ping
-		var ping map[string]interface{}
+		var ping PiPo
 		json.Unmarshal(p.Data, &ping)
 		p.PayLoad = ping
 	} else if p.Header.CmdType == RESP {

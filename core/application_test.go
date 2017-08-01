@@ -137,13 +137,9 @@ func TestApplication(t *testing.T) {
 	}
 	t.Logf("%v\n", val)
 
-	reqPacket = proto.MoaReqPacket{}
-	reqPacket.ServiceUri = "/service/lookup"
-	reqPacket.Params.Method = "Pong"
-	reqPacket.Params.Args = []interface{}{"fuck", "redis", "groupId"}
-
+	pipo := proto.PiPo{Timestamp: time.Now().Unix()}
 	p = packet.NewPacket(proto.PING, nil)
-	p.PayLoad = reqPacket
+	p.PayLoad = pipo
 	val, _ = remoteClient.WriteAndGet(*p, 5*time.Second)
 	if nil != err {
 		t.Logf("WriteAndGet|PING|FAIL|%v\n", err)
