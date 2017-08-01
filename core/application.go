@@ -145,12 +145,9 @@ func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p 
 
 	} else if p.Header.CmdType == proto.PING {
 		//PING 协议
-		resp, err := proto.Wrap2ResponsePacket(p, "PONG")
-		if nil != err {
-			log.ErrorLog("moa-server", "Application|PongResponse|FAIL|%v|%v|%s",
-				err, p.Header, remoteClient.RemoteAddr())
-			return
-		}
+		// resp, err := proto.Wrap2ResponsePacket(p, "PONG")
+		resp := packet.NewRespPacket(p.Header.Opaque, proto.PONG, nil)
+		resp.PayLoad = p.PayLoad
 		remoteClient.Write(*resp)
 	} else if p.Header.CmdType == proto.INFO {
 		//INFO 协议，返回服务端信息

@@ -26,13 +26,24 @@ type BinaryCodec struct {
 func (self BinaryCodec) UnmarshalPacket(p packet.Packet) (*packet.Packet, error) {
 
 	if p.Header.CmdType == REQ {
+		//req
 		req, err := Wrap2MoaRawRequest(p.Data)
 		if nil != err {
 			return nil, err
 		}
 		p.PayLoad = *req
+	} else if p.Header.CmdType == PING || p.Header.CmdType == PONG {
+		//ping
+		var ping map[string]interface{}
+		json.Unmarshal(p.Data, &ping)
+		p.PayLoad = ping
 	} else if p.Header.CmdType == RESP {
-		fmt.Printf("------%v\n", p)
+		//resp
+		resp, err := Wrap2MoaRawRequest(p.Data)
+		if nil != err {
+			return nil, err
+		}
+		p.PayLoad = *resp
 	}
 
 	return &p, nil
@@ -47,6 +58,10 @@ func (self BinaryCodec) MarshalPacket(p packet.Packet) ([]byte, error) {
 		}
 		p.Data = data
 
+	} else if p.Header.CmdType == PING || p.Header.CmdType == PONG {
+		//pong协议
+		payLoad, _ := json.Marshal(p.PayLoad)
+		p.Data = payLoad
 	} else if p.Header.CmdType == RESP {
 
 		resp, ok := p.PayLoad.(MoaRespPacket)

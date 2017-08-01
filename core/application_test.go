@@ -12,7 +12,6 @@ import (
 	"github.com/blackbeans/turbo/client"
 	"github.com/blackbeans/turbo/codec"
 	"github.com/blackbeans/turbo/packet"
-	"gopkg.in/redis.v5"
 )
 
 type DemoResult struct {
@@ -66,6 +65,8 @@ func (self Demo) HelloError(text string) (DemoResult, error) {
 	return DemoResult{}, errors.New(text)
 }
 
+var remoteClient *client.RemotingClient
+
 func init() {
 	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
 	inter := (*IHello)(nil)
@@ -81,15 +82,6 @@ func init() {
 				Interface:  inter},
 		}
 	})
-
-}
-
-func clientPacketDispatcher(rclient *client.RemotingClient, resp *packet.Packet) {
-	rclient.Attach(resp.Header.Opaque, resp.Data)
-	log.Printf("clientPacketDispatcher|%s\n", string(resp.Data))
-}
-
-func TestApplication(t *testing.T) {
 
 	//创建物理连接
 	conn, _ := func(hostport string) (*net.TCPConn, error) {
@@ -114,12 +106,20 @@ func TestApplication(t *testing.T) {
 		16*1024, 20000, 20000,
 		10*time.Second, 160000)
 
-	remoteClient := client.NewRemotingClient(conn,
+	remoteClient = client.NewRemotingClient(conn,
 		func() codec.ICodec {
 			return proto.BinaryCodec{
 				MaxFrameLength: packet.MAX_PACKET_BYTES}
 		}, clientPacketDispatcher, rcc)
 	remoteClient.Start()
+
+}
+
+func clientPacketDispatcher(rclient *client.RemotingClient, resp *packet.Packet) {
+	rclient.Attach(resp.Header.Opaque, resp.Data)
+}
+
+func TestApplication(t *testing.T) {
 
 	reqPacket := proto.MoaReqPacket{}
 	reqPacket.ServiceUri = "/service/lookup"
@@ -136,28 +136,42 @@ func TestApplication(t *testing.T) {
 
 	}
 	t.Logf("%v\n", val)
-	// //test error
-	// cmd = "{\"action\":\"/service/lookup\",\"params\":{\"m\":\"HelloError\",\"args\":[\"fuck\"]}}"
-	// p = packet.NewPacket(proto.PING, []byte(cmd))
-	// val, _ = remoteClient.WriteAndGet(*p, 5*time.Second)
-	// if nil != err {
-	// 	t.Logf("WriteAndGet|PING|FAIL|%v\n", err)
-	// 	t.FailNow()
-	// }
+
+	reqPacket = proto.MoaReqPacket{}
+	reqPacket.ServiceUri = "/service/lookup"
+	reqPacket.Params.Method = "Pong"
+	reqPacket.Params.Args = []interface{}{"fuck", "redis", "groupId"}
+
+	p = packet.NewPacket(proto.PING, nil)
+	p.PayLoad = reqPacket
+	val, _ = remoteClient.WriteAndGet(*p, 5*time.Second)
+	if nil != err {
+		t.Logf("WriteAndGet|PING|FAIL|%v\n", err)
+		t.FailNow()
+	}
+
+	t.Logf("Recieve|PONG|%s", val)
+}
+
+func innerTestRPC(t testing.TB) {
+
 }
 
 func BenchmarkApplication(t *testing.B) {
 	t.StopTimer()
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:13000",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	defer client.Close()
-	cmd := "{\"action\":\"/service/lookup\",\"params\":{\"m\":\"GetService\",\"args\":[\"fuck\",\"redis\",\"groupId\"]}}"
+	reqPacket := proto.MoaReqPacket{}
+	reqPacket.ServiceUri = "/service/lookup"
+	reqPacket.Params.Method = "GetService"
+	reqPacket.Params.Args = []interface{}{"fuck", "redis", "groupId"}
+
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
-		client.Get(cmd)
+		p := packet.NewPacket(proto.REQ, nil)
+		p.PayLoad = reqPacket
+		_, err := remoteClient.WriteAndGet(*p, 5*time.Second)
+		if nil != err {
+			t.Logf("WriteAndGet|FAIL|%v\n", err)
+			t.FailNow()
+		}
 	}
-
 }
