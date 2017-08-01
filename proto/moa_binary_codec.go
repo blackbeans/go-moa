@@ -2,7 +2,6 @@ package proto
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/blackbeans/log4go"
 
@@ -39,7 +38,7 @@ func (self BinaryCodec) UnmarshalPacket(p packet.Packet) (*packet.Packet, error)
 		p.PayLoad = ping
 	} else if p.Header.CmdType == RESP {
 		//resp
-		resp, err := Wrap2MoaRawRequest(p.Data)
+		resp, err := Wrap2MoaRawResponse(p.Data)
 		if nil != err {
 			return nil, err
 		}
@@ -65,23 +64,25 @@ func (self BinaryCodec) MarshalPacket(p packet.Packet) ([]byte, error) {
 	} else if p.Header.CmdType == RESP {
 
 		resp, ok := p.PayLoad.(MoaRespPacket)
-
-		if ok {
-			var data []byte
-			if v, ok := resp.Result.(string); ok {
-				data = []byte(v)
-			} else {
-				d, err := json.Marshal(resp.Result)
-				if nil != err {
-					log4go.ErrorLog("codec", "BinaryCodec|MarshalPacket|Marshal|FAIL", err)
-					return nil, err
-				}
-				data = d
-			}
-			p.Data = data
-		} else {
-			return nil, fmt.Errorf("Invalid Resp MoaRespPacket")
+		if !ok {
+			resp = MoaRespPacket{ErrCode: CODE_SERIALIZATION_SERVER,
+				Message: "Invalid PayLoad Type Not MoaRespPacket"}
 		}
+		var data []byte
+		if v, ok := resp.Result.(string); ok {
+			data = []byte(v)
+		} else {
+			d, err := json.Marshal(resp)
+			if nil != err {
+				log4go.ErrorLog("codec", "BinaryCodec|MarshalPacket|Marshal|FAIL", err)
+				resp = MoaRespPacket{ErrCode: CODE_SERIALIZATION_SERVER,
+					Message: "Invalid PayLoad Type Not MoaRespPacket"}
+				d, _ = json.Marshal(resp)
+			}
+			data = d
+		}
+		p.Data = data
+
 	}
 	resp := p.Marshal()
 	return resp, nil

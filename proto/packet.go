@@ -72,6 +72,16 @@ func Wrap2MoaRawRequest(data []byte) (*MoaRawReqPacket, error) {
 
 }
 
+func Wrap2MoaRawResponse(data []byte) (*MoaRawRespPacket, error) {
+	var resp MoaRawRespPacket
+	err := json.Unmarshal(data, &resp)
+	if nil != err {
+		return nil, err
+	}
+	// mrp := Command2MoaRequest(req)
+	return &resp, nil
+}
+
 func Wrap2ResponsePacket(p *packet.Packet, resp interface{}) (*packet.Packet, error) {
 	v, ok := resp.(string)
 	var data []byte
