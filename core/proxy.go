@@ -3,11 +3,12 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/blackbeans/go-moa/proto"
-	log "github.com/blackbeans/log4go"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/blackbeans/go-moa/proto"
+	log "github.com/blackbeans/log4go"
 )
 
 type MethodMeta struct {
@@ -131,7 +132,7 @@ func (self InvocationHandler) Invoke(packet *proto.MoaRawReqPacket) *proto.MoaRe
 					self.moaStat.IncreaseError()
 					return resp
 				}
-
+				ch := make(chan *invokeResult, 1)
 				go func() {
 					ir := &invokeResult{}
 					defer func() {
@@ -141,17 +142,16 @@ func (self InvocationHandler) Invoke(packet *proto.MoaRawReqPacket) *proto.MoaRe
 								err, packet.Source, packet.ServiceUri, m.Name, params)
 							resp.Message = fmt.Sprintf(proto.MSG_INVOCATION_TARGET, err)
 							ir.err = err
-							packet.Channel <- ir
+							ch <- ir
 						}
 					}()
 					ir.values = m.Method.Call(params)
-					packet.Channel <- ir
+					ch <- ir
 				}()
 
 				func() {
 					select {
-					case r := <-packet.Channel:
-						result := r.(*invokeResult)
+					case result := <-ch:
 						values := result.values
 						if nil != result.err {
 							self.moaStat.IncreaseError()

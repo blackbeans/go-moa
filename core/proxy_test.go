@@ -2,11 +2,12 @@ package core
 
 import (
 	"encoding/json"
-	"github.com/blackbeans/go-moa/proto"
-	"github.com/blackbeans/turbo"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/blackbeans/go-moa/proto"
+	"github.com/blackbeans/turbo"
 
 	_ "fmt"
 )
@@ -72,7 +73,6 @@ func TestInvocationInvoke(t *testing.T) {
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
 	req := &proto.MoaReqPacket{}
 	req.ServiceUri = "demo"
-	req.Channel = make(chan interface{}, 10)
 	req.Params.Args = []interface{}{"fuck", DemoParam{"you"}}
 	req.Params.Method = "proxydemo"
 	req.Timeout = 5 * time.Second
@@ -91,7 +91,6 @@ func TestInvokeProxyDemoSlice(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
 	req := &proto.MoaReqPacket{}
-	req.Channel = make(chan interface{}, 10)
 	req.ServiceUri = "demo"
 	req.Params.Args = []interface{}{"fuck", []string{"a", "b"}, ProxyParam{"you"}}
 	req.Params.Method = "ProxyDemoSlice"
@@ -117,7 +116,6 @@ func TestInvokeJsonParams(t *testing.T) {
 		t.Error(err)
 	}
 	t.Log(req)
-	req.Channel = make(chan interface{}, 10)
 	req.Timeout = 5 * time.Second
 	resp := handler.Invoke(&req)
 	t.Logf("TestInvokeProxyDemoSlice|Invoke|%s\n", resp.Result)
@@ -144,8 +142,6 @@ func TestComplexSliceJsonParams(t *testing.T) {
 		t.Error(err)
 	}
 
-	t.Log(req)
-	req.Channel = make(chan interface{}, 10)
 	req.Timeout = 5 * time.Second
 	resp := handler.Invoke(&req)
 	t.Logf("TestInvokeProxyDemoSlice|Invoke|%s\n", resp)

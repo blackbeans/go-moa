@@ -17,8 +17,7 @@ type MoaReqPacket struct {
 		Method string        `json:"m"`
 		Args   []interface{} `json:"args"`
 	} `json:"params"`
-	Timeout time.Duration    `json:"-"`
-	Channel chan interface{} `json:"-"`
+	Timeout time.Duration `json:"-"`
 }
 
 //moa请求协议的包
@@ -28,9 +27,8 @@ type MoaRawReqPacket struct {
 		Method string            `json:"m"`
 		Args   []json.RawMessage `json:"args"`
 	} `json:"params"`
-	Timeout time.Duration    `json:"-"`
-	Source  string           `json:"-"`
-	Channel chan interface{} `json:"-"`
+	Timeout time.Duration `json:"-"`
+	Source  string        `json:"-"`
 }
 
 //moa响应packet
@@ -59,7 +57,6 @@ func MoaRequest2Raw(req *MoaReqPacket) *MoaRawReqPacket {
 	}
 
 	raw.Params.Args = rawArgs
-	raw.Channel = req.Channel
 	raw.Timeout = req.Timeout
 	return raw
 }

@@ -134,7 +134,6 @@ func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p 
 
 		//这里面根据解析包的内容得到调用不同的service获得结果
 		req.Source = remoteClient.RemoteAddr()
-		req.Channel = remoteClient.AttachChannel
 		req.Timeout = self.options.processTimeout
 		result := self.invokeHandler.Invoke(&req)
 
