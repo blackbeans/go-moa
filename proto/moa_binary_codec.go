@@ -109,21 +109,15 @@ func (self BinaryCodec) MarshalPacket(p packet.Packet) ([]byte, error) {
 			resp = MoaRespPacket{ErrCode: CODE_SERIALIZATION_SERVER,
 				Message: "Invalid PayLoad Type Not MoaRespPacket"}
 		}
-		var data []byte
-		if v, ok := resp.Result.(string); ok {
-			data = []byte(v)
-		} else {
-			d, err := json.Marshal(resp)
-			if nil != err {
-				log4go.ErrorLog("codec", "BinaryCodec|MarshalPacket|Marshal|FAIL", err)
-				resp = MoaRespPacket{ErrCode: CODE_SERIALIZATION_SERVER,
-					Message: "Invalid PayLoad Type Not MoaRespPacket"}
-				d, _ = json.Marshal(resp)
-			}
-			data = d
+
+		data, err := json.Marshal(resp)
+		if nil != err {
+			log4go.ErrorLog("codec", "BinaryCodec|MarshalPacket|Marshal|FAIL", err)
+			resp = MoaRespPacket{ErrCode: CODE_SERIALIZATION_SERVER,
+				Message: "Invalid PayLoad Type Not MoaRespPacket"}
+			data, _ = json.Marshal(resp)
 		}
 		p.Data = data
-
 	}
 
 	//使用snap
