@@ -177,6 +177,10 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 			}
 		}
 	}
+	//默认开启snappy
+	if len(cluster.Compress)<=0{
+		cluster.Compress = "snappy"
+	}
 
 	//拼装为可用的MOA参数
 	mop := &MOAOption{}
@@ -191,7 +195,7 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 	mop.writeChannelSize = cluster.WriteChannelSize   //写异步channel长度
 	mop.readChannelSize = cluster.ReadChannelSize     //读异步channel长度
 	mop.idleDuration = 60 * time.Second
-	mop.compress = cluster.Compress
+	mop.compress = 
 	return mop, nil
 
 }
