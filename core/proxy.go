@@ -147,8 +147,11 @@ func (self InvocationHandler) Invoke(packet *proto.MoaRawReqPacket) *proto.MoaRe
 					}()
 					ir.values = m.Method.Call(params)
 					if len(m.ReturnType) <= 1 {
-						//其实就是个err
-						ir.err = ir.values[0]
+						err := ir.values[0].Interface()
+						if nil != err {
+							//其实就是个err
+							ir.err = ir.values[0]
+						}
 					}
 					ch <- ir
 				}()
