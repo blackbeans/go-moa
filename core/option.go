@@ -27,7 +27,6 @@ type Option struct {
 	//client配置
 	Client struct {
 		RunMode          string
-		AppSecretKey     string
 		Compress         string // compres=snappy
 		SelectorStrategy string //selectorstrategy="random"
 

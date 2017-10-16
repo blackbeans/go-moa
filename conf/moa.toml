@@ -6,11 +6,10 @@
 	compress="snappy"
 
 [client]
-	appSecretKey="123"
 	runMode="dev"
 	compress="snappy"
 	selectorStrategy="random"
-
+	
 #cluster的服务器
 [clusters]
 	[clusters.dev]
