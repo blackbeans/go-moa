@@ -81,7 +81,6 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	//创建注册服务
 	configCenter := NewConfigCenter(cluster.Registry,
 		serverOp.Server.BindAddress,
-		// serverOp.Server.GroupId,
 		services)
 
 	app := &Application{}
