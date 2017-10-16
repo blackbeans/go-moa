@@ -10,12 +10,12 @@ func TestOldZKRegisteService(t *testing.T) {
 	// t.Log("test")
 	regAddr := "localhost:2181"
 	serviceUri := "/service/bibi-profile"
-	protocol := "redis"
+	protocol := "v1"
 	hostport := "localhost:18000"
 
-	registry := NewZookeeper(regAddr, []string{serviceUri}, false)
+	registry := NewZkRegistry(regAddr, []string{serviceUri}, false)
 
-	registry.RegisteService(serviceUri, hostport, "redis", "*")
+	registry.RegisteService(serviceUri, hostport, "v1", "*")
 
 	time.Sleep(10 * time.Second)
 	data, err := registry.GetService(serviceUri, protocol, "*")
@@ -52,12 +52,12 @@ func TestGroupZKRegisteService(t *testing.T) {
 	// t.Log("test")
 	regAddr := "localhost:2181"
 	serviceUri := "/service/bibi-profile"
-	protocol := "redis"
+	protocol := "v1"
 	hostport := "localhost:18000"
 	groupId := "s-mts-group"
 
 	groupUri := BuildServiceUri("/service/bibi-profile", "s-mts-group")
-	registry := NewZookeeper(regAddr, []string{groupUri}, false)
+	registry := NewZkRegistry(regAddr, []string{groupUri}, false)
 
 	registry.RegisteService(serviceUri, hostport, protocol, groupId)
 	time.Sleep(10 * time.Second)

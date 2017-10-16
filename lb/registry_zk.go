@@ -4,20 +4,21 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/blackbeans/go-zookeeper/zk"
-	log "github.com/blackbeans/log4go"
 	"regexp"
 	"sort"
 	"sync"
+
+	"github.com/blackbeans/go-zookeeper/zk"
+	log "github.com/blackbeans/log4go"
 )
 
 const (
-	// /moa/service/redis/service/relation-service#{groupId}/localhost:13000?timeout=1000&protocol=redis
+	// /moa/service/v1/service/relation-service#{groupId}/localhost:13000?timeout=1000&protocol=v1
 	ZK_MOA_ROOT_PATH  = "/moa/service"
 	ZK_ROOT           = "/"
 	ZK_PATH_DELIMITER = "/"
 
-	PROTOCOL           = "redis"
+	PROTOCOL           = "v1"
 	REGISTRY_ZOOKEEPER = "zookeeper"
 	ALL_GROUP          = "*"
 )
@@ -75,7 +76,7 @@ func NewZkRegistry(regAddr string, service []string, serverModel bool) *ZkRegist
 }
 
 func (self ZkRegistry) RegisteService(serviceUri, hostport, protoType, groupId string) bool {
-	// /moa/service/redis/service/relation-service#{groupId}/localhost:13000?timeout=1000&protocol=redis
+	// /moa/service/v1/service/relation-service#{groupId}/localhost:13000?timeout=1000&protocol=v1
 	// hostport = "localhost:13000" //test
 	servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, protoType)
 	//has groupId
@@ -85,7 +86,7 @@ func (self ZkRegistry) RegisteService(serviceUri, hostport, protoType, groupId s
 
 	conn := self.zkManager.session
 
-	// 创建持久服务节点 /moa/service/redis/service/relation-service#{groupId}
+	// 创建持久服务节点 /moa/service/v1/service/relation-service#{groupId}
 	exist, _, err := conn.Exists(servicePath)
 	if err != nil {
 		conn.Close()
@@ -98,7 +99,7 @@ func (self ZkRegistry) RegisteService(serviceUri, hostport, protoType, groupId s
 		}
 	}
 
-	// 创建临时服务地址节点 /moa/service/redis/service/relation-service#{groupId}/localhost:13000?timeout=1000&protocol=redis
+	// 创建临时服务地址节点 /moa/service/v1/service/relation-service#{groupId}/localhost:13000?timeout=1000&protocol=v1
 	// 先删除，后创建吧。不然zk不通知，就坐等坑爹吧。蛋碎了一地。/(ㄒoㄒ)/~~
 
 	conn.Delete(svAddrPath, 0)
@@ -178,7 +179,7 @@ func (self ZkRegistry) OnSessionExpired() {
 
 // 用户客户端监听服务节点地址发生变化时触发
 func (self ZkRegistry) NodeChange(path string, eventType ZkEvent, addrs []string) {
-	reg, _ := regexp.Compile(`/moa/service/redis([^\s]*)`)
+	reg, _ := regexp.Compile(`/moa/service/v1([^\s]*)`)
 	uri := reg.FindAllStringSubmatch(path, -1)[0][1]
 	// fmt.Printf("--------%s\t%s\n", path, uri)
 	needChange := true
