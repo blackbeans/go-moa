@@ -14,7 +14,6 @@
 [clusters]
 	[clusters.dev]
 		registry="zk://localhost:2181"
-		logFile="../conf/log.xml"
 		processTimeout=5
 		#最大分发处理协程数
 		maxDispatcherSize=8000 
@@ -28,8 +27,7 @@
 		readChannelSize=1000 
 		
 	[clusters.online]
-		registry="zk://vm-bibi-zk-mq001.vm:2181,vm-bibi-zk-mq002.vm:2181,vm-bibi-zk-mq003.vm:2181"
-		logFile="../conf/log.xml" 
+		registry="zk://vm-bibi-zk-mq001.vm:2181,vm-bibi-zk-mq002.vm:2181,vm-bibi-zk-mq003.vm:2181" 
 		processTimeout=5
 		#最大分发处理协程数
 		maxDispatcherSize=8000 

@@ -45,7 +45,6 @@ type Cluster struct {
 	WriteBufferSize   int           //=16 * 1024 //写入缓冲大小
 	WriteChannelSize  int           //=1000 //写异步channel长度
 	ReadChannelSize   int           //=1000 //读异步channel长度
-	LogFile           string        //log4go的文件路径
 }
 
 func LoadConfiruation(path string) (Option, error) {
