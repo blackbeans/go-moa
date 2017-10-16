@@ -22,7 +22,6 @@ type Option struct {
 		Name        string
 		RunMode     string
 		BindAddress string
-		GroupId     string
 		Compress    string // compres=snappy
 	}
 
@@ -140,10 +139,6 @@ func InitClientOption(option Option) Option {
 
 //初始化server的配置
 func InitServerOption(option Option) Option {
-	//服务分默认不配置是使用*分组
-	if len(option.Server.GroupId) <= 0 {
-		option.Server.GroupId = "*"
-	}
 	//------------寻找匹配的网卡IP段，进行匹配
 	split := strings.Split(option.Server.BindAddress, ":")
 	regx := split[0]

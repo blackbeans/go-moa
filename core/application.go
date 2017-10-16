@@ -48,7 +48,10 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	cloneServs := make([]Service, 0, len(services))
 
 	for i, s := range services {
-		s.GroupId = serverOp.Server.GroupId
+		//服务分默认不配置是使用*分组
+		if len(s.GroupId) <= 0 {
+			s.GroupId = "*"
+		}
 		services[i] = s
 		cloneServs = append(cloneServs, s)
 	}
@@ -78,7 +81,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	//创建注册服务
 	configCenter := NewConfigCenter(cluster.Registry,
 		serverOp.Server.BindAddress,
-		serverOp.Server.GroupId,
+		// serverOp.Server.GroupId,
 		services)
 
 	app := &Application{}
