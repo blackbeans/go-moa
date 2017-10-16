@@ -41,7 +41,6 @@ type Option struct {
 //----------------------------------------
 //Cluster配置
 type Cluster struct {
-	Env               string        //当前环境使用的是dev还是online
 	Registry          string        //配置中心
 	ProcessTimeout    time.Duration //处理超时 5 s单位
 	IdleTimeout       time.Duration //链接空闲时间

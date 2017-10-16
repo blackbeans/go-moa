@@ -17,7 +17,6 @@
 #cluster的服务器
 [clusters]
 	[clusters.dev]
-		env="dev" 
 		registry="zk://localhost:2181"
 		logFile="../conf/log.xml"
 		processTimeout=5
@@ -33,7 +32,6 @@
 		readChannelSize=1000 
 		
 	[clusters.online]
-		env="online"
 		registry="zk://vm-bibi-zk-mq001.vm:2181,vm-bibi-zk-mq002.vm:2181,vm-bibi-zk-mq003.vm:2181"
 		logFile="../conf/log.xml" 
 		processTimeout=5
