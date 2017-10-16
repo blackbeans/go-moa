@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blackbeans/turbo"
+
 	"github.com/blackbeans/go-moa/proto"
 	log "github.com/blackbeans/log4go"
 )
@@ -30,12 +32,14 @@ type Service struct {
 type InvocationHandler struct {
 	instances map[string]Service
 	moaStat   *MoaStat
+	tw        *turbo.TimerWheel
 }
 
 var errorType = reflect.TypeOf(make([]error, 1)).Elem()
 
 func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandler {
 
+	tw := turbo.NewTimerWheel(10*time.Millisecond, 100)
 	instances := make(map[string]Service, len(services))
 	//对instace进行反射获得方法
 	for _, s := range services {
@@ -86,7 +90,9 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 		instances[s.ServiceUri] = s
 		log.InfoLog("moa-server", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
 	}
-	return &InvocationHandler{instances, moaStat}
+	return &InvocationHandler{instances: instances,
+		moaStat: moaStat,
+		tw:      tw}
 
 }
 
@@ -154,8 +160,11 @@ func (self InvocationHandler) Invoke(packet *proto.MoaRawReqPacket) *proto.MoaRe
 					}
 					ch <- ir
 				}()
-
+				timerid, timeout := self.tw.After(packet.Timeout)
 				func() {
+					defer func() {
+						self.tw.CancelTimer(timerid)
+					}()
 					select {
 					case result := <-ch:
 						values := result.values
@@ -177,7 +186,7 @@ func (self InvocationHandler) Invoke(packet *proto.MoaRawReqPacket) *proto.MoaRe
 							}
 
 						}
-					case <-time.After(packet.Timeout):
+					case <-timeout:
 						self.moaStat.IncreaseTimeout()
 						resp.ErrCode = proto.CODE_TIMEOUT_SERVER
 						resp.Message = fmt.Sprintf(proto.MSG_TIMEOUT,
