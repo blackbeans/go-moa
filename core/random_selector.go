@@ -27,6 +27,9 @@ func (self *RandomStrategy) ReHash(nodes []string) {
 func (self *RandomStrategy) Select(key string) string {
 	self.RLock()
 	defer self.RUnlock()
+	if len(self.nodes) <= 0 {
+		return ""
+	}
 	return self.nodes[rand.Intn(self.length)]
 }
 
