@@ -1,13 +1,11 @@
 #当前使用的环境
 [server]
-	name="moa-demo"
 	runMode="dev"
 	#可以指定正则表达式也可以直接:13000默认使用0.0.0.0的IP(不建议)^10\\.83\\.\\d+\\.\\d+$:13000
 	bindAddress=":13000"
 	compress="snappy"
 
 [client]
-	name="moa-demo"
 	appSecretKey="123"
 	runMode="dev"
 	compress="snappy"

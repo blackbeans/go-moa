@@ -56,7 +56,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		cloneServs = append(cloneServs, s)
 	}
 
-	name := serverOp.Server.Name + "/" + serverOp.Server.BindAddress
+	name := serverOp.Server.BindAddress
 	cluster := serverOp.Clusters[serverOp.Server.RunMode]
 	rc := turbo.NewRemotingConfig(name,
 		cluster.MaxDispatcherSize,

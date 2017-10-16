@@ -19,7 +19,6 @@ type HostPort struct {
 type Option struct {
 	//server配置
 	Server struct {
-		Name        string
 		RunMode     string
 		BindAddress string
 		Compress    string // compres=snappy
@@ -27,7 +26,6 @@ type Option struct {
 
 	//client配置
 	Client struct {
-		Name             string
 		RunMode          string
 		AppSecretKey     string
 		Compress         string // compres=snappy
