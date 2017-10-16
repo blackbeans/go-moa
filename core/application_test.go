@@ -70,7 +70,7 @@ var remoteClient *client.RemotingClient
 func init() {
 	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
 	inter := (*IHello)(nil)
-	NewApplcation("../conf/cluster_test.toml", func() []Service {
+	NewApplcation("../conf/moa.toml", func() []Service {
 		return []Service{
 			Service{
 				ServiceUri: "/service/lookup",

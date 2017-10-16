@@ -21,9 +21,6 @@
       
       args：m方法的调用参数序列。
 
-   * PING 
-     
-       同 Redis的PING返回PONG
 
 #### 安装：
     

@@ -21,7 +21,7 @@ type ServiceBundle func() []Service
 type Application struct {
 	remoting      *server.RemotingServer
 	invokeHandler *InvocationHandler
-	options       *MOAOption
+	options       Option
 	configCenter  *ConfigCenter
 	moaStat       *MoaStat
 }
@@ -43,27 +43,30 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		panic(err)
 	}
 
+	serverOp := InitServerOption(options)
+
 	cloneServs := make([]Service, 0, len(services))
 
 	for i, s := range services {
-		s.GroupId = options.groupId
+		s.GroupId = serverOp.Server.GroupId
 		services[i] = s
 		cloneServs = append(cloneServs, s)
 	}
 
-	name := options.name + "/" + options.hostport
+	name := serverOp.Server.Name + "/" + serverOp.Server.BindAddress
+	cluster := serverOp.Clusters[serverOp.Server.RunMode]
 	rc := turbo.NewRemotingConfig(name,
-		options.maxDispatcherSize,
-		options.readBufferSize,
-		options.readBufferSize,
-		options.writeChannelSize,
-		options.readChannelSize,
-		options.idleDuration,
+		cluster.MaxDispatcherSize,
+		cluster.ReadBufferSize,
+		cluster.ReadBufferSize,
+		cluster.WriteChannelSize,
+		cluster.ReadChannelSize,
+		cluster.IdleTimeout,
 		50*10000)
 
 	//是否启用snappy
 	snappy := false
-	if strings.ToLower(options.compress) == "snappy" {
+	if strings.ToLower(serverOp.Server.Compress) == "snappy" {
 		snappy = true
 	}
 
@@ -73,22 +76,28 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	}
 
 	//创建注册服务
-	configCenter := NewConfigCenter(options.registryHosts, options.hostport, options.groupId, services)
+	configCenter := NewConfigCenter(cluster.Registry,
+		serverOp.Server.BindAddress,
+		serverOp.Server.GroupId,
+		services)
 
 	app := &Application{}
 	app.options = options
 	app.configCenter = configCenter
 	//moastat
-	moaStat := NewMoaStat(options.hostport, services[0].ServiceUri, monitor, func() turbo.NetworkStat {
-		return app.remoting.NetworkStat()
+	moaStat := NewMoaStat(serverOp.Server.BindAddress,
+		services[0].ServiceUri, monitor, func() turbo.NetworkStat {
+			return app.remoting.NetworkStat()
 
-	})
+		})
 	app.moaStat = moaStat
 
 	app.invokeHandler = NewInvocationHandler(services, moaStat)
 
 	//启动remoting
-	remoting := server.NewRemotionServerWithCodec(options.hostport, rc, cf,
+	remoting := server.NewRemotionServerWithCodec(serverOp.Server.BindAddress,
+		rc,
+		cf,
 		func(remoteClient *client.RemotingClient, p *packet.Packet) {
 			packetDispatcher(app, remoteClient, p)
 		})
@@ -98,7 +107,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	//------------启动pprof
 	go func() {
-		hp, _ := net.ResolveTCPAddr("tcp4", options.hostport)
+		hp, _ := net.ResolveTCPAddr("tcp4", serverOp.Server.BindAddress)
 		pprof := fmt.Sprintf("%s:%d", hp.IP, (hp.Port + 1000))
 		log.ErrorLog("moa-server", http.ListenAndServe(pprof, nil))
 
@@ -106,7 +115,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	//注册服务
 	configCenter.RegisteAllServices()
-	log.InfoLog("moa-server", "Application|Start|SUCC|%s|%s", name, options.hostport)
+	log.InfoLog("moa-server", "Application|Start|SUCC|%s|%s", name, serverOp.Server.BindAddress)
 	return app
 }
 
@@ -134,7 +143,7 @@ func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p 
 
 		//这里面根据解析包的内容得到调用不同的service获得结果
 		req.Source = remoteClient.RemoteAddr()
-		req.Timeout = self.options.processTimeout
+		req.Timeout = self.options.Clusters[self.options.Server.RunMode].ProcessTimeout
 		result := self.invokeHandler.Invoke(&req)
 
 		resp := packet.NewRespPacket(p.Header.Opaque, proto.RESP, nil)

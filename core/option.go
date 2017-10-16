@@ -1,7 +1,6 @@
 package core
 
 import (
-	"errors"
 	"io/ioutil"
 	"net"
 	"os"
@@ -9,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/blackbeans/log4go"
 	"github.com/naoina/toml"
 )
 
@@ -19,104 +17,136 @@ type HostPort struct {
 
 //配置信息
 type Option struct {
-	Env struct {
+	//server配置
+	Server struct {
 		Name        string
 		RunMode     string
 		BindAddress string
 		GroupId     string
+		Compress    string // compres=snappy
 	}
 
-	//使用的环境
-	Registry map[string]HostPort //momokeeper的配置
-	Clusters map[string]Cluster  //各集群的配置
+	//client配置
+	Client struct {
+		Name             string
+		RunMode          string
+		AppSecretKey     string
+		Compress         string // compres=snappy
+		SelectorStrategy string //selectorstrategy="random"
+
+	}
+	Clusters map[string]Cluster //各集群的配置
 }
 
 //----------------------------------------
 //Cluster配置
 type Cluster struct {
-	Env               string //当前环境使用的是dev还是online
-	ProcessTimeout    int    //处理超时 5 s单位
-	MaxDispatcherSize int    //=8000//最大分发处理协程数
-	ReadBufferSize    int    //=16 * 1024 //读取缓冲大小
-	WriteBufferSize   int    //=16 * 1024 //写入缓冲大小
-	WriteChannelSize  int    //=1000 //写异步channel长度
-	ReadChannelSize   int    //=1000 //读异步channel长度
-	Compress          string // compres=snappy
-	LogFile           string //log4go的文件路径
+	Env               string        //当前环境使用的是dev还是online
+	Registry          string        //配置中心
+	ProcessTimeout    time.Duration //处理超时 5 s单位
+	IdleTimeout       time.Duration //链接空闲时间
+	MaxDispatcherSize int           //=8000//最大分发处理协程数
+	ReadBufferSize    int           //=16 * 1024 //读取缓冲大小
+	WriteBufferSize   int           //=16 * 1024 //写入缓冲大小
+	WriteChannelSize  int           //=1000 //写异步channel长度
+	ReadChannelSize   int           //=1000 //读异步channel长度
+	LogFile           string        //log4go的文件路径
 }
 
-//---------最终需要的Option
-type MOAOption struct {
-	name              string
-	compress          string
-	groupId           string //服务分组Uri
-	registryHosts     string
-	hostport          string
-	processTimeout    time.Duration
-	maxDispatcherSize int           //=8000//最大分发处理协程数
-	readBufferSize    int           //=16 * 1024 //读取缓冲大小
-	writeBufferSize   int           //=16 * 1024 //写入缓冲大小
-	writeChannelSize  int           //=1000 //写异步channel长度
-	readChannelSize   int           //=1000 //读异步channel长度
-	idleDuration      time.Duration //=60s //连接空闲时间
-}
-
-func LoadConfiruation(path string) (*MOAOption, error) {
+func LoadConfiruation(path string) (Option, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return Option{}, err
 	}
 	defer f.Close()
 	buff, rerr := ioutil.ReadAll(f)
 	if nil != rerr {
-		return nil, rerr
+		return Option{}, err
 	}
-	// log.DebugLog("application", "LoadConfiruation|Parse|toml:%s", string(buff))
+
 	//读取配置
 	var option Option
 	err = toml.Unmarshal(buff, &option)
 	if nil != err {
-		return nil, err
+		return Option{}, err
+	}
+	clusters := make(map[string]Cluster, len(option.Clusters))
+	//设置默认值
+	for name, cluster := range option.Clusters {
+		if cluster.MaxDispatcherSize <= 0 {
+			cluster.MaxDispatcherSize = 8000 //最大分发处理协程数
+		}
+
+		if cluster.ReadBufferSize <= 0 {
+			cluster.ReadBufferSize = 16 * 1024 //读取缓冲大小
+		}
+
+		if cluster.WriteBufferSize <= 0 {
+			cluster.WriteBufferSize = 16 * 1024 //写入缓冲大小
+		}
+
+		if cluster.WriteChannelSize <= 0 {
+			cluster.WriteChannelSize = 1000 //写异步channel长度
+		}
+
+		if cluster.ReadChannelSize <= 0 {
+			cluster.ReadChannelSize = 1000 //读异步channel长度
+		}
+
+		//链接空闲时间
+		if cluster.IdleTimeout <= 0 {
+			cluster.IdleTimeout =
+				time.Duration(int64(cluster.IdleTimeout) * int64(time.Second))
+		}
+
+		if cluster.ProcessTimeout <= 0 {
+			cluster.ProcessTimeout =
+				time.Duration(int64(cluster.ProcessTimeout) * int64(time.Second))
+		}
+
+		clusters[name] = cluster
+	}
+	option.Clusters = clusters
+	return option, nil
+
+}
+
+//初始化客户端的Option
+func InitClientOption(option Option) Option {
+
+	cluster, ok := option.Clusters[option.Client.RunMode]
+	if ok {
+		//默认开启snappy
+		if len(option.Client.Compress) <= 0 {
+			option.Client.Compress = "snappy"
+		}
+	} else {
+		panic("Client RunMode Conf Not Found!")
 	}
 
-	cluster, ok := option.Clusters[option.Env.RunMode]
-	if !ok {
-		return nil, errors.New("no cluster config for " + option.Env.RunMode)
+	strategy := STRATEGY_RANDOM
+	switch strings.ToUpper(option.Client.SelectorStrategy) {
+	case "KETAMA":
+		strategy = STRATEGY_KETAMA
+	case "RANDOM":
+		fallthrough
+	default:
+		strategy = STRATEGY_RANDOM
 	}
 
-	//加载Log4go
-	log.LoadConfiguration(cluster.LogFile)
-	reg, exist := option.Registry[option.Env.RunMode]
-	if !exist {
-		return nil, errors.New("no reg  for " + option.Env.RunMode + ":" + cluster.Env)
-	}
+	option.Client.SelectorStrategy = strategy
+	option.Clusters[option.Client.RunMode] = cluster
+	return option
+}
 
-	if cluster.MaxDispatcherSize <= 0 {
-		cluster.MaxDispatcherSize = 8000 //最大分发处理协程数
-	}
-
-	if cluster.ReadBufferSize <= 0 {
-		cluster.ReadBufferSize = 16 * 1024 //读取缓冲大小
-	}
-
-	if cluster.WriteBufferSize <= 0 {
-		cluster.WriteBufferSize = 16 * 1024 //写入缓冲大小
-	}
-
-	if cluster.WriteChannelSize <= 0 {
-		cluster.WriteChannelSize = 1000 //写异步channel长度
-	}
-
-	if cluster.ReadChannelSize <= 0 {
-		cluster.ReadChannelSize = 1000 //读异步channel长度
-	}
-
+//初始化server的配置
+func InitServerOption(option Option) Option {
 	//服务分默认不配置是使用*分组
-	if len(option.Env.GroupId) <= 0 {
-		option.Env.GroupId = "*"
+	if len(option.Server.GroupId) <= 0 {
+		option.Server.GroupId = "*"
 	}
 	//------------寻找匹配的网卡IP段，进行匹配
-	split := strings.Split(option.Env.BindAddress, ":")
+	split := strings.Split(option.Server.BindAddress, ":")
 	regx := split[0]
 
 	inters, err := net.Interfaces()
@@ -126,7 +156,7 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 		hasMatched := false
 		//如果没有IP匹配表达式则用默认的
 		if len(regx) <= 0 {
-			option.Env.BindAddress = "0.0.0.0:" + split[1]
+			option.Server.BindAddress = "0.0.0.0:" + split[1]
 			hasMatched = true
 		} else {
 			for _, inter := range inters {
@@ -136,7 +166,7 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 						if nil != ip.IP.To4() {
 							match, _ := regexp.MatchString(regx, ip.IP.To4().String())
 							if match {
-								option.Env.BindAddress = ip.IP.To4().String() + ":" + split[1]
+								option.Server.BindAddress = ip.IP.To4().String() + ":" + split[1]
 								hasMatched = true
 								break
 							}
@@ -163,7 +193,7 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 					for _, addr := range addrs {
 						if ip, ok := addr.(*net.IPNet); ok &&
 							!ip.IP.IsLoopback() && nil != ip.IP.To4() {
-							option.Env.BindAddress = ip.IP.To4().String() + ":" + split[1]
+							option.Server.BindAddress = ip.IP.To4().String() + ":" + split[1]
 							hasMatched = true
 							break
 						}
@@ -172,30 +202,22 @@ func LoadConfiruation(path string) (*MOAOption, error) {
 			}
 
 			if !hasMatched {
-				option.Env.BindAddress = "0.0.0.0" + ":" + split[1]
+				option.Server.BindAddress = "0.0.0.0" + ":" + split[1]
 
 			}
 		}
 	}
-	//默认开启snappy
-	if len(cluster.Compress) <= 0 {
-		cluster.Compress = "snappy"
+
+	cluster, ok := option.Clusters[option.Server.RunMode]
+	if ok {
+		//默认开启snappy
+		if len(option.Server.Compress) <= 0 {
+			option.Server.Compress = "snappy"
+		}
+	} else {
+		panic("Server RunMode Conf Not Found!")
 	}
 
-	//拼装为可用的MOA参数
-	mop := &MOAOption{}
-	mop.name = option.Env.Name
-	mop.groupId = option.Env.GroupId
-	mop.hostport = option.Env.BindAddress
-	mop.registryHosts = reg.Hosts
-	mop.processTimeout = time.Duration(int64(cluster.ProcessTimeout) * int64(time.Second))
-	mop.maxDispatcherSize = cluster.MaxDispatcherSize //最大分发处理协程数
-	mop.readBufferSize = cluster.ReadBufferSize       //读取缓冲大小
-	mop.writeBufferSize = cluster.WriteBufferSize     //写入缓冲大小
-	mop.writeChannelSize = cluster.WriteChannelSize   //写异步channel长度
-	mop.readChannelSize = cluster.ReadChannelSize     //读异步channel长度
-	mop.idleDuration = 60 * time.Second
-	mop.compress = cluster.Compress
-	return mop, nil
-
+	option.Clusters[option.Server.RunMode] = cluster
+	return option
 }
