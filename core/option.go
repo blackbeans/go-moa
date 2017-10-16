@@ -39,7 +39,7 @@ type Option struct {
 type Cluster struct {
 	Registry          string        //配置中心
 	ProcessTimeout    time.Duration //处理超时 5 s单位
-	IdleTimeout       time.Duration //链接空闲时间
+	IdleTimeout       time.Duration //链接空闲时间 5 * 60s
 	MaxDispatcherSize int           //=8000//最大分发处理协程数
 	ReadBufferSize    int           //=16 * 1024 //读取缓冲大小
 	WriteBufferSize   int           //=16 * 1024 //写入缓冲大小
@@ -90,15 +90,17 @@ func LoadConfiruation(path string) (Option, error) {
 
 		//链接空闲时间
 		if cluster.IdleTimeout <= 0 {
-			cluster.IdleTimeout =
-				time.Duration(int64(cluster.IdleTimeout) * int64(time.Second))
+			cluster.IdleTimeout = 5 * 60
 		}
 
+		cluster.IdleTimeout =
+			time.Duration(int64(cluster.IdleTimeout) * int64(time.Second))
 		if cluster.ProcessTimeout <= 0 {
-			cluster.ProcessTimeout =
-				time.Duration(int64(cluster.ProcessTimeout) * int64(time.Second))
+			cluster.ProcessTimeout = 5
 		}
 
+		cluster.ProcessTimeout =
+			time.Duration(int64(cluster.ProcessTimeout) * int64(time.Second))
 		clusters[name] = cluster
 	}
 	option.Clusters = clusters
