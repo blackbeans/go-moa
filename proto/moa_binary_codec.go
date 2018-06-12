@@ -53,14 +53,14 @@ func Compress(src []byte) []byte {
 
 //反序列化
 //包装为packet，但是头部没有信息
-func (self BinaryCodec) UnmarshalPacket(p turbo.Packet) (*turbo.Packet, error) {
+func (self BinaryCodec) UnmarshalPacket(p turbo.Packet) (turbo.Packet, error) {
 
 	useSnappy := p.Header.Extension & COMPRESS_SNAPPY
 	//使用snap
 	if useSnappy == COMPRESS_SNAPPY {
 		d, err := Decompress(p.Data)
 		if nil != err {
-			return nil, err
+			return turbo.Packet{}, err
 		}
 		p.Data = d
 	}
@@ -69,7 +69,7 @@ func (self BinaryCodec) UnmarshalPacket(p turbo.Packet) (*turbo.Packet, error) {
 		//req
 		req, err := Wrap2MoaRawRequest(p.Data)
 		if nil != err {
-			return nil, err
+			return turbo.Packet{}, err
 		}
 		p.PayLoad = *req
 	} else if p.Header.CmdType == PING || p.Header.CmdType == PONG {
@@ -81,12 +81,12 @@ func (self BinaryCodec) UnmarshalPacket(p turbo.Packet) (*turbo.Packet, error) {
 		//resp
 		resp, err := Wrap2MoaRawResponse(p.Data)
 		if nil != err {
-			return nil, err
+			return turbo.Packet{}, err
 		}
 		p.PayLoad = *resp
 	}
 
-	return &p, nil
+	return p, nil
 }
 
 func (self BinaryCodec) MarshalPacket(p turbo.Packet) ([]byte, error) {

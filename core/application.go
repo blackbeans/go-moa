@@ -10,7 +10,6 @@ import (
 	"github.com/blackbeans/go-moa/proto"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
-	"golang.org/x/crypto/openpgp/packet"
 )
 
 type ServiceBundle func() []Service
