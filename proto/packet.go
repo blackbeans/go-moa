@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/blackbeans/turbo/packet"
+	"github.com/blackbeans/turbo"
 )
 
 type PiPo struct {
@@ -83,7 +83,7 @@ func Wrap2MoaRawResponse(data []byte) (*MoaRawRespPacket, error) {
 	return &resp, nil
 }
 
-func Wrap2ResponsePacket(p *packet.Packet, resp interface{}) (*packet.Packet, error) {
+func Wrap2ResponsePacket(p *turbo.Packet, resp interface{}) (*turbo.Packet, error) {
 	v, ok := resp.(string)
 	var data []byte
 	var err error = nil
@@ -93,7 +93,7 @@ func Wrap2ResponsePacket(p *packet.Packet, resp interface{}) (*packet.Packet, er
 		data, err = json.Marshal(resp)
 	}
 
-	respPacket := packet.NewRespPacket(p.Header.Opaque, p.Header.CmdType, data)
+	respPacket := turbo.NewRespPacket(p.Header.Opaque, p.Header.CmdType, data)
 	return respPacket, err
 }
 

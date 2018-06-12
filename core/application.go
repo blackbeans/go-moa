@@ -10,16 +10,13 @@ import (
 	"github.com/blackbeans/go-moa/proto"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
-	"github.com/blackbeans/turbo/client"
-	"github.com/blackbeans/turbo/codec"
-	"github.com/blackbeans/turbo/packet"
-	"github.com/blackbeans/turbo/server"
+	"golang.org/x/crypto/openpgp/packet"
 )
 
 type ServiceBundle func() []Service
 
 type Application struct {
-	remoting      *server.RemotingServer
+	remoting      *turbo.TServer
 	invokeHandler *InvocationHandler
 	options       Option
 	configCenter  *ConfigCenter
@@ -58,7 +55,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	name := serverOp.Server.BindAddress
 	cluster := serverOp.Clusters[serverOp.Server.RunMode]
-	rc := turbo.NewRemotingConfig(name,
+	config := turbo.NewTConfig(name,
 		cluster.MaxDispatcherSize,
 		cluster.ReadBufferSize,
 		cluster.ReadBufferSize,
@@ -74,7 +71,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	}
 
 	//需要开发对应的codec
-	cf := func() codec.ICodec {
+	codec := func() turbo.ICodec {
 		return proto.BinaryCodec{MaxFrameLength: 64 * 1024, SnappyCompress: snappy}
 	}
 
@@ -97,12 +94,14 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	app.invokeHandler = NewInvocationHandler(services, moaStat)
 
 	//启动remoting
-	remoting := server.NewRemotionServerWithCodec(serverOp.Server.BindAddress,
-		rc,
-		cf,
-		func(remoteClient *client.RemotingClient, p *packet.Packet) {
-			packetDispatcher(app, remoteClient, p)
-		})
+	remoting := turbo.NewTServerWithCodec(
+		serverOp.Server.BindAddress,
+		config,
+		codec,
+		func(ctx *turbo.TContext) error{
+			packetDispatcher(app,ctx)
+			return nil
+		},)
 	app.remoting = remoting
 	remoting.ListenAndServer()
 	moaStat.StartLog()
@@ -130,7 +129,7 @@ func (self Application) DestroyApplication() {
 }
 
 //需要开发对应的分包
-func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p *packet.Packet) {
+func packetDispatcher(self *Application, ctx *turbo.TContext) {
 
 	defer func() {
 		if err := recover(); nil != err {
@@ -138,37 +137,38 @@ func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p 
 		}
 	}()
 
+	p := ctx.Message
 	//如果是get命令
 	if p.Header.CmdType == proto.REQ {
 
 		req := p.PayLoad.(proto.MoaRawReqPacket)
 
 		//这里面根据解析包的内容得到调用不同的service获得结果
-		req.Source = remoteClient.RemoteAddr()
+		req.Source = ctx.Client.RemoteAddr()
 		req.Timeout = self.options.Clusters[self.options.Server.RunMode].ProcessTimeout
 		result := self.invokeHandler.Invoke(&req)
 
-		resp := packet.NewRespPacket(p.Header.Opaque, proto.RESP, nil)
+		resp := turbo.NewRespPacket(p.Header.Opaque, proto.RESP, nil)
 		resp.PayLoad = *result
 		if nil != result && result.ErrCode == proto.CODE_TIMEOUT_SERVER {
 			//如果是超时的结果那么久直接
 			log.ErrorLog("moa-server", "Application|Invoke|Timeout|%v", req)
-			remoteClient.Write(*resp)
+			ctx.Client.Write(*resp)
 			return
 		}
 
-		remoteClient.Write(*resp)
+		ctx.Client.Write(*resp)
 		//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
 
 	} else if p.Header.CmdType == proto.PING {
 		//PING 协议
 		pipo, ok := p.PayLoad.(proto.PiPo)
 		if ok {
-			remoteClient.Pong(p.Header.Opaque, pipo.Timestamp)
+			ctx.Client.Pong(p.Header.Opaque, pipo.Timestamp)
 		}
-		resp := packet.NewRespPacket(p.Header.Opaque, proto.PONG, nil)
+		resp := turbo.NewRespPacket(p.Header.Opaque, proto.PONG, nil)
 		resp.PayLoad = pipo
-		remoteClient.Write(*resp)
+		ctx.Client.Write(*resp)
 	} else if p.Header.CmdType == proto.INFO {
 		//INFO 协议，返回服务端信息
 		stat := make(map[string]interface{}, 2)
@@ -177,11 +177,11 @@ func packetDispatcher(self *Application, remoteClient *client.RemotingClient, p 
 		resp, err := proto.Wrap2ResponsePacket(p, stat)
 		if nil != err {
 			log.ErrorLog("moa-server", "Application|PongResponse|FAIL|%v|%v|%s",
-				err, p.Header, remoteClient.RemoteAddr())
-			remoteClient.Shutdown()
+				err, p.Header, ctx.Client.RemoteAddr())
+			ctx.Client.Shutdown()
 			return
 		}
-		remoteClient.Write(*resp)
+		ctx.Client.Write(*resp)
 	}
 
 }

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/blackbeans/log4go"
-	"github.com/blackbeans/turbo/packet"
+	"github.com/blackbeans/turbo"
 	"github.com/golang/snappy"
 )
 
@@ -53,7 +53,7 @@ func Compress(src []byte) []byte {
 
 //反序列化
 //包装为packet，但是头部没有信息
-func (self BinaryCodec) UnmarshalPacket(p packet.Packet) (*packet.Packet, error) {
+func (self BinaryCodec) UnmarshalPacket(p turbo.Packet) (*turbo.Packet, error) {
 
 	useSnappy := p.Header.Extension & COMPRESS_SNAPPY
 	//使用snap
@@ -89,7 +89,7 @@ func (self BinaryCodec) UnmarshalPacket(p packet.Packet) (*packet.Packet, error)
 	return &p, nil
 }
 
-func (self BinaryCodec) MarshalPacket(p packet.Packet) ([]byte, error) {
+func (self BinaryCodec) MarshalPacket(p turbo.Packet) ([]byte, error) {
 
 	if p.Header.CmdType == REQ {
 		data, err := json.Marshal(p.PayLoad)

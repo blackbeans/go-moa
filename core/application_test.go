@@ -9,9 +9,6 @@ import (
 
 	"github.com/blackbeans/go-moa/proto"
 	"github.com/blackbeans/turbo"
-	"github.com/blackbeans/turbo/client"
-	"github.com/blackbeans/turbo/codec"
-	"github.com/blackbeans/turbo/packet"
 )
 
 type DemoResult struct {
@@ -65,7 +62,7 @@ func (self Demo) HelloError(text string) (DemoResult, error) {
 	return DemoResult{}, errors.New(text)
 }
 
-var remoteClient *client.RemotingClient
+var tclient *turbo.TClient
 
 func init() {
 	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
@@ -100,22 +97,24 @@ func init() {
 		return conn, nil
 	}("localhost:13000")
 
-	rcc := turbo.NewRemotingConfig(
+	config := turbo.NewTConfig(
 		"turbo-client:localhost:28888",
 		1000, 16*1024,
 		16*1024, 20000, 20000,
 		10*time.Second, 160000)
 
-	remoteClient = client.NewRemotingClient(conn,
-		func() codec.ICodec {
+	tclient = turbo.NewTClient(conn,
+		func() turbo.ICodec {
 			return proto.BinaryCodec{
-				MaxFrameLength: packet.MAX_PACKET_BYTES}
-		}, clientPacketDispatcher, rcc)
-	remoteClient.Start()
+				MaxFrameLength: turbo.MAX_PACKET_BYTES}
+		}, func(ctx *turbo.TContext) error {
+			return nil
+		}, config)
+	tclient.Start()
 
 }
 
-func clientPacketDispatcher(rclient *client.RemotingClient, resp *packet.Packet) {
+func clientPacketDispatcher(rclient *turbo.TClient, resp *turbo.Packet) {
 	rclient.Attach(resp.Header.Opaque, resp.Data)
 }
 
@@ -126,10 +125,10 @@ func TestApplication(t *testing.T) {
 	reqPacket.Params.Method = "GetService"
 	reqPacket.Params.Args = []interface{}{"fuck", "redis", "groupId"}
 
-	p := packet.NewPacket(proto.REQ, nil)
+	p := turbo.NewPacket(proto.REQ, nil)
 	p.PayLoad = reqPacket
 
-	val, err := remoteClient.WriteAndGet(*p, 5*time.Second)
+	val, err := tclient.WriteAndGet(*p, 5*time.Second)
 	if nil != err {
 		t.Logf("WriteAndGet|FAIL|%v\n", err)
 		t.FailNow()
@@ -138,9 +137,9 @@ func TestApplication(t *testing.T) {
 	t.Logf("%v\n", val)
 
 	pipo := proto.PiPo{Timestamp: time.Now().Unix()}
-	p = packet.NewPacket(proto.PING, nil)
+	p = turbo.NewPacket(proto.PING, nil)
 	p.PayLoad = pipo
-	val, _ = remoteClient.WriteAndGet(*p, 5*time.Second)
+	val, _ = tclient.WriteAndGet(*p, 5*time.Second)
 	if nil != err {
 		t.Logf("WriteAndGet|PING|FAIL|%v\n", err)
 		t.FailNow()
@@ -162,9 +161,9 @@ func BenchmarkApplication(t *testing.B) {
 
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
-		p := packet.NewPacket(proto.REQ, nil)
+		p := turbo.NewPacket(proto.REQ, nil)
 		p.PayLoad = reqPacket
-		_, err := remoteClient.WriteAndGet(*p, 5*time.Second)
+		_, err := tclient.WriteAndGet(*p, 5*time.Second)
 		if nil != err {
 			t.Logf("WriteAndGet|FAIL|%v\n", err)
 			t.FailNow()
