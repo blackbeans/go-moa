@@ -6,8 +6,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"strings"
-
-	"github.com/blackbeans/go-moa/proto"
+	
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 )
@@ -71,7 +70,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	//需要开发对应的codec
 	codec := func() turbo.ICodec {
-		return proto.BinaryCodec{MaxFrameLength: 64 * 1024, SnappyCompress: snappy}
+		return BinaryCodec{MaxFrameLength: turbo.MAX_PACKET_BYTES, SnappyCompress: snappy}
 	}
 
 	//创建注册服务
@@ -98,7 +97,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		config,
 		codec,
 		func(ctx *turbo.TContext) error{
-			packetDispatcher(app,ctx)
+			dis(app,ctx)
 			return nil
 		},)
 	app.remoting = remoting
@@ -128,7 +127,7 @@ func (self Application) DestroyApplication() {
 }
 
 //需要开发对应的分包
-func packetDispatcher(self *Application, ctx *turbo.TContext) {
+func dis(self *Application, ctx *turbo.TContext) {
 
 	defer func() {
 		if err := recover(); nil != err {
@@ -137,20 +136,30 @@ func packetDispatcher(self *Application, ctx *turbo.TContext) {
 	}()
 
 	p := ctx.Message
-	//如果是get命令
-	if p.Header.CmdType == proto.REQ {
+	//如果是错误的，那么久直接写出错误的响应给客户端
+	if nil!=ctx.Err{
+		resp := turbo.NewRespPacket(p.Header.Opaque, RESP, nil)
+		resp.PayLoad = MoaRespPacket{ErrCode:CODE_THROWABLE,Message:fmt.Sprintf("%v",ctx.Err)}
+		//需要发送调用的错误给客户端
+		log.ErrorLog("moa-server", "Application|Err|Process|%v",resp)
+		ctx.Client.Write(*resp)
+		return
+	}
 
-		req := p.PayLoad.(proto.MoaRawReqPacket)
+	//如果是get命令
+	if p.Header.CmdType == REQ {
+
+		req := p.PayLoad.(MoaRawReqPacket)
 
 		//这里面根据解析包的内容得到调用不同的service获得结果
 		req.Source = ctx.Client.RemoteAddr()
 		req.Timeout = self.options.Clusters[self.options.Server.RunMode].ProcessTimeout
 		result := self.invokeHandler.Invoke(&req)
 
-		resp := turbo.NewRespPacket(p.Header.Opaque, proto.RESP, nil)
+		resp := turbo.NewRespPacket(p.Header.Opaque, RESP, nil)
 		resp.PayLoad = *result
-		if nil != result && result.ErrCode == proto.CODE_TIMEOUT_SERVER {
-			//如果是超时的结果那么久直接
+		if nil != result && (result.ErrCode != 0 && result.ErrCode != CODE_SERVER_SUCC) {
+			//需要发送调用的错误给客户端
 			log.ErrorLog("moa-server", "Application|Invoke|Timeout|%v", req)
 			ctx.Client.Write(*resp)
 			return
@@ -159,27 +168,22 @@ func packetDispatcher(self *Application, ctx *turbo.TContext) {
 		ctx.Client.Write(*resp)
 		//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
 
-	} else if p.Header.CmdType == proto.PING {
+	} else if p.Header.CmdType == PING {
 		//PING 协议
-		pipo, ok := p.PayLoad.(proto.PiPo)
+		pipo, ok := p.PayLoad.(PiPo)
 		if ok {
 			ctx.Client.Pong(p.Header.Opaque, pipo.Timestamp)
 		}
-		resp := turbo.NewRespPacket(p.Header.Opaque, proto.PONG, nil)
+		resp := turbo.NewRespPacket(p.Header.Opaque, PONG, nil)
 		resp.PayLoad = pipo
 		ctx.Client.Write(*resp)
-	} else if p.Header.CmdType == proto.INFO {
+	} else if p.Header.CmdType == INFO {
 		//INFO 协议，返回服务端信息
 		stat := make(map[string]interface{}, 2)
 		stat["network"] = self.remoting.NetworkStat()
 		stat["moa"] = self.moaStat.GetMoaInfo()
-		resp, err := proto.Wrap2ResponsePacket(p, stat)
-		if nil != err {
-			log.ErrorLog("moa-server", "Application|PongResponse|FAIL|%v|%v|%s",
-				err, p.Header, ctx.Client.RemoteAddr())
-			ctx.Client.Shutdown()
-			return
-		}
+		resp := turbo.NewRespPacket(p.Header.Opaque, INFO, nil)
+		resp.PayLoad = stat
 		ctx.Client.Write(*resp)
 	}
 

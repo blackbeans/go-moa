@@ -8,9 +8,8 @@ import (
 	"time"
 
 	"github.com/blackbeans/turbo"
-
-	"github.com/blackbeans/go-moa/proto"
 	log "github.com/blackbeans/log4go"
+	"context"
 )
 
 type MethodMeta struct {
@@ -97,27 +96,27 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 }
 
 //执行结果
-func (self InvocationHandler) Invoke(packet *proto.MoaRawReqPacket) *proto.MoaRespPacket {
+func (self InvocationHandler) Invoke(packet *MoaRawReqPacket) *MoaRespPacket {
 	self.moaStat.IncreaseRecv()
-	resp := &proto.MoaRespPacket{}
+	resp := &MoaRespPacket{}
 	//需要对包的内容解析进行反射调用
 	instance, ok := self.instances[packet.ServiceUri]
 	if !ok {
 		self.moaStat.IncreaseError()
-		resp.ErrCode = proto.CODE_SERVICE_NOT_FOUND
-		resp.Message = fmt.Sprintf(proto.MSG_NO_URI_FOUND, packet.ServiceUri)
+		resp.ErrCode = CODE_SERVICE_NOT_FOUND
+		resp.Message = fmt.Sprintf(MSG_NO_URI_FOUND, packet.ServiceUri)
 	} else {
 		m, mok := instance.methods[strings.ToLower(packet.Params.Method)]
 		if !mok {
 			self.moaStat.IncreaseError()
-			resp.ErrCode = proto.CODE_METHOD_NOT_FOUND
-			resp.Message = fmt.Sprintf(proto.MSG_METHOD_NOT_FOUND, packet.Params.Method)
+			resp.ErrCode = CODE_METHOD_NOT_FOUND
+			resp.Message = fmt.Sprintf(MSG_METHOD_NOT_FOUND, packet.Params.Method)
 		} else {
 			//参数数量不对应
 			if len(packet.Params.Args) != len(m.ParamTypes) {
 				self.moaStat.IncreaseError()
-				resp.ErrCode = proto.CODE_SERIALIZATION
-				resp.Message = fmt.Sprintf(proto.MSG_PARAMS_NOT_MATCHED,
+				resp.ErrCode = CODE_SERIALIZATION
+				resp.Message = fmt.Sprintf(MSG_PARAMS_NOT_MATCHED,
 					len(packet.Params.Args), len(m.ParamTypes))
 			} else {
 				params := make([]reflect.Value, 0, len(m.ParamTypes))
@@ -127,30 +126,34 @@ func (self InvocationHandler) Invoke(packet *proto.MoaRawReqPacket) *proto.MoaRe
 					inst := reflect.New(f)
 					uerr := json.Unmarshal(arg, inst.Interface())
 					if nil != uerr {
-						resp.ErrCode = proto.CODE_SERIALIZATION_SERVER
-						resp.Message = fmt.Sprintf(proto.MSG_SERIALIZATION, uerr)
+						resp.ErrCode = CODE_SERIALIZATION_SERVER
+						resp.Message = fmt.Sprintf(MSG_SERIALIZATION, uerr)
 					} else {
 						params = append(params, inst.Elem())
 					}
 				}
 
-				if resp.ErrCode != 0 && resp.ErrCode != proto.CODE_SERVER_SUCC {
+				if resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC {
 					self.moaStat.IncreaseError()
 					return resp
 				}
-				ch := make(chan *invokeResult, 1)
+
+				ctx,cancel := context.WithTimeout(context.Background(),packet.Timeout)
+				defer cancel()
+				result := make(chan invokeResult,1)
 				go func() {
-					ir := &invokeResult{}
+					ir := invokeResult{}
 					defer func() {
 						if err := recover(); nil != err {
 							//TODO LOG ERROR
 							log.ErrorLog("moa-server", "InvocationHandler|Invoke|Call|FAIL|%v|Source:%s|%s|%s|%s|%s",
 								err, packet.Source, packet.ServiceUri, m.Name, params)
-							resp.Message = fmt.Sprintf(proto.MSG_INVOCATION_TARGET, err)
+							resp.Message = fmt.Sprintf(MSG_INVOCATION_TARGET, err)
 							ir.err = err
-							ch <- ir
+							result  <- ir
 						}
 					}()
+
 					ir.values = m.Method.Call(params)
 					if len(m.ReturnType) <= 1 {
 						if !ir.values[0].IsNil() {
@@ -158,44 +161,40 @@ func (self InvocationHandler) Invoke(packet *proto.MoaRawReqPacket) *proto.MoaRe
 							ir.err = ir.values[0]
 						}
 					}
-					ch <- ir
-				}()
-				timerid, timeout := self.tw.After(packet.Timeout)
-				func() {
-					defer func() {
-						self.tw.CancelTimer(timerid)
-					}()
-					select {
-					case result := <-ch:
-						values := result.values
-						if nil != result.err {
-							self.moaStat.IncreaseError()
-							resp.ErrCode = proto.CODE_INVOCATION_TARGET
-							resp.Message = fmt.Sprintf("Invoke FAIL (%v) ", result.err)
-						} else if nil == values {
-							self.moaStat.IncreaseError()
-							resp.ErrCode = proto.CODE_INVOCATION_TARGET
-							resp.Message = fmt.Sprintf("NO Result ...")
-						} else {
-							self.moaStat.IncreaseProc()
-							resp.ErrCode = proto.CODE_SERVER_SUCC
-							resp.Result = values[0].Interface()
-							//则肯定会有error
-							if len(values) > 1 && !values[1].IsNil() {
-								resp.Message = fmt.Sprintf("Method Invoke Error %v", values[1].Interface())
-							}
+					result  <- ir
 
+				}()
+				select {
+				case  r:=<-result:
+					if nil != r.err {
+						self.moaStat.IncreaseError()
+						resp.ErrCode = CODE_INVOCATION_TARGET
+						resp.Message = fmt.Sprintf("Invoke FAIL (%v) ", r.err)
+					} else if nil == r.values {
+						self.moaStat.IncreaseError()
+						resp.ErrCode = CODE_INVOCATION_TARGET
+						resp.Message = fmt.Sprintf("NO Result ...")
+					} else {
+						self.moaStat.IncreaseProc()
+						resp.ErrCode = CODE_SERVER_SUCC
+						resp.Result = r.values[0].Interface()
+						//则肯定会有error
+						if len(r.values) > 1 && !r.values[1].IsNil() {
+							resp.Message = fmt.Sprintf("Method Invoke Error %v", r.values[1].Interface())
 						}
-					case <-timeout:
-						self.moaStat.IncreaseTimeout()
-						resp.ErrCode = proto.CODE_TIMEOUT_SERVER
-						resp.Message = fmt.Sprintf(proto.MSG_TIMEOUT,
-							packet.ServiceUri+"#"+packet.Params.Method)
-						log.WarnLog("moa-server", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|%s|%s|%v",
-							packet.Source, packet.Timeout/time.Millisecond, packet.ServiceUri, m.Name, params)
-					}
 
-				}()
+					}
+				case <-ctx.Done():
+
+					self.moaStat.IncreaseTimeout()
+					resp.ErrCode = CODE_TIMEOUT_SERVER
+					resp.Message = fmt.Sprintf(MSG_TIMEOUT,
+						packet.ServiceUri+"#"+packet.Params.Method)
+					log.WarnLog("moa-server", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|%s|%s|%v",
+						packet.Source, packet.Timeout/time.Millisecond, packet.ServiceUri, m.Name, params)
+				}
+
+
 
 			}
 		}

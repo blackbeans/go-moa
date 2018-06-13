@@ -6,8 +6,7 @@ import (
 	"net"
 	"testing"
 	"time"
-
-	"github.com/blackbeans/go-moa/proto"
+	
 	"github.com/blackbeans/turbo"
 )
 
@@ -105,30 +104,28 @@ func init() {
 
 	tclient = turbo.NewTClient(conn,
 		func() turbo.ICodec {
-			return proto.BinaryCodec{
+			return BinaryCodec {
 				MaxFrameLength: turbo.MAX_PACKET_BYTES}
 		}, func(ctx *turbo.TContext) error {
+			ctx.Client.Attach(ctx.Message.Header.Opaque, ctx.Message.Data)
 			return nil
 		}, config)
 	tclient.Start()
 
 }
 
-func clientPacketDispatcher(rclient *turbo.TClient, resp *turbo.Packet) {
-	rclient.Attach(resp.Header.Opaque, resp.Data)
-}
 
 func TestApplication(t *testing.T) {
 
-	reqPacket := proto.MoaReqPacket{}
+	reqPacket := MoaReqPacket{}
 	reqPacket.ServiceUri = "/service/lookup"
 	reqPacket.Params.Method = "GetService"
 	reqPacket.Params.Args = []interface{}{"fuck", "redis", "groupId"}
 
-	p := turbo.NewPacket(proto.REQ, nil)
+	p := turbo.NewPacket(REQ, nil)
 	p.PayLoad = reqPacket
 
-	val, err := tclient.WriteAndGet(*p, 5*time.Second)
+	val, err := tclient.WriteAndGet(*p, 60*time.Second)
 	if nil != err {
 		t.Logf("WriteAndGet|FAIL|%v\n", err)
 		t.FailNow()
@@ -136,8 +133,8 @@ func TestApplication(t *testing.T) {
 	}
 	t.Logf("%v\n", val)
 
-	pipo := proto.PiPo{Timestamp: time.Now().Unix()}
-	p = turbo.NewPacket(proto.PING, nil)
+	pipo := PiPo{Timestamp: time.Now().Unix()}
+	p = turbo.NewPacket(PING, nil)
 	p.PayLoad = pipo
 	val, _ = tclient.WriteAndGet(*p, 5*time.Second)
 	if nil != err {
@@ -148,20 +145,17 @@ func TestApplication(t *testing.T) {
 	t.Logf("Recieve|PONG|%s", val)
 }
 
-func innerTestRPC(t testing.TB) {
-
-}
 
 func BenchmarkApplication(t *testing.B) {
 	t.StopTimer()
-	reqPacket := proto.MoaReqPacket{}
+	reqPacket := MoaReqPacket{}
 	reqPacket.ServiceUri = "/service/lookup"
 	reqPacket.Params.Method = "GetService"
 	reqPacket.Params.Args = []interface{}{"fuck", "redis", "groupId"}
 
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
-		p := turbo.NewPacket(proto.REQ, nil)
+		p := turbo.NewPacket(REQ, nil)
 		p.PayLoad = reqPacket
 		_, err := tclient.WriteAndGet(*p, 5*time.Second)
 		if nil != err {

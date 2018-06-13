@@ -1,4 +1,4 @@
-package proto
+package core
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 	"github.com/golang/snappy"
+	"time"
 )
 
 const (
@@ -53,14 +54,13 @@ func Compress(src []byte) []byte {
 
 //反序列化
 //包装为packet，但是头部没有信息
-func (self BinaryCodec) UnmarshalPacket(p turbo.Packet) (turbo.Packet, error) {
-
+func (self BinaryCodec) UnmarshalPayload(p *turbo.Packet) (interface{}, error) {
 	useSnappy := p.Header.Extension & COMPRESS_SNAPPY
 	//使用snap
 	if useSnappy == COMPRESS_SNAPPY {
 		d, err := Decompress(p.Data)
 		if nil != err {
-			return turbo.Packet{}, err
+			return nil, err
 		}
 		p.Data = d
 	}
@@ -81,27 +81,27 @@ func (self BinaryCodec) UnmarshalPacket(p turbo.Packet) (turbo.Packet, error) {
 		//resp
 		resp, err := Wrap2MoaRawResponse(p.Data)
 		if nil != err {
-			return turbo.Packet{}, err
+			return p, err
 		}
 		p.PayLoad = *resp
 	}
 
-	return p, nil
+	return p.PayLoad, nil
 }
 
-func (self BinaryCodec) MarshalPacket(p turbo.Packet) ([]byte, error) {
+func (self BinaryCodec) MarshalPayload(p *turbo.Packet) ([]byte, error) {
 
+	var rawPayload []byte
 	if p.Header.CmdType == REQ {
 		data, err := json.Marshal(p.PayLoad)
 		if nil != err {
 			return nil, err
 		}
-		p.Data = data
+		rawPayload = data
 
 	} else if p.Header.CmdType == PING || p.Header.CmdType == PONG {
 		//pong协议
-		payLoad, _ := json.Marshal(p.PayLoad)
-		p.Data = payLoad
+		rawPayload, _ = json.Marshal(p.PayLoad)
 	} else if p.Header.CmdType == RESP {
 
 		resp, ok := p.PayLoad.(MoaRespPacket)
@@ -112,22 +112,74 @@ func (self BinaryCodec) MarshalPacket(p turbo.Packet) ([]byte, error) {
 
 		data, err := json.Marshal(resp)
 		if nil != err {
-			log4go.ErrorLog("codec", "BinaryCodec|MarshalPacket|Marshal|FAIL", err)
+			log4go.ErrorLog("stderr", "BinaryCodec|MarshalPacket|Marshal|FAIL", err)
 			resp = MoaRespPacket{ErrCode: CODE_SERIALIZATION_SERVER,
 				Message: "Invalid PayLoad Type Not MoaRespPacket"}
 			data, _ = json.Marshal(resp)
 		}
-		p.Data = data
+		rawPayload =  data
 	}
 
-	//使用snap
-	if self.SnappyCompress {
-		//设置snappy压缩
-		p.Header.Extension = (p.Header.Extension | COMPRESS_SNAPPY)
-		d := Compress(p.Data)
-		p.Data = d
-	}
-	resp := p.Marshal()
-	return resp, nil
+	return rawPayload, nil
 
 }
+
+type PiPo struct {
+	Timestamp int64 `json:"timestamp"`
+}
+
+type MoaReqPacket struct {
+	ServiceUri string `json:"action"`
+	Params     struct {
+		Method string        `json:"m"`
+		Args   []interface{} `json:"args"`
+	} `json:"params"`
+	Timeout time.Duration `json:"-"`
+}
+
+//moa请求协议的包
+type MoaRawReqPacket struct {
+	ServiceUri string `json:"action"`
+	Params     struct {
+		Method string            `json:"m"`
+		Args   []json.RawMessage `json:"args"`
+	} `json:"params"`
+	Timeout time.Duration `json:"-"`
+	Source  string        `json:"-"`
+}
+
+//moa响应packet
+type MoaRespPacket struct {
+	ErrCode int         `json:"ec"`
+	Message string      `json:"em"`
+	Result  interface{} `json:"result"`
+}
+
+//moa响应packet
+type MoaRawRespPacket struct {
+	ErrCode int             `json:"ec"`
+	Message string          `json:"em"`
+	Result  json.RawMessage `json:"result"`
+}
+
+
+func Wrap2MoaRawRequest(data []byte) (*MoaRawReqPacket, error) {
+	var req MoaRawReqPacket
+	err := json.Unmarshal(data, &req)
+	if nil != err {
+		return nil, err
+	} else {
+		return &req, nil
+	}
+
+}
+
+func Wrap2MoaRawResponse(data []byte) (*MoaRawRespPacket, error) {
+	var resp MoaRawRespPacket
+	err := json.Unmarshal(data, &resp)
+	if nil != err {
+		return nil, err
+	}
+	return &resp, nil
+}
+

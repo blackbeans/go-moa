@@ -1,4 +1,4 @@
-package proto
+package core
 
 const (
 	CODE_SERVER_SUCC = 200

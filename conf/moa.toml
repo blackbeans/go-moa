@@ -14,7 +14,7 @@
 [clusters]
 	[clusters.dev]
 		registry="zk://localhost:2181"
-		processTimeout=5
+		processTimeout=20
 		#最大分发处理协程数
 		maxDispatcherSize=8000 
 		#读取缓冲大小 
@@ -28,7 +28,7 @@
 		
 	[clusters.online]
 		registry="zk://vm-bibi-zk-mq001.vm:2181,vm-bibi-zk-mq002.vm:2181,vm-bibi-zk-mq003.vm:2181" 
-		processTimeout=5
+		processTimeout=20
 		#最大分发处理协程数
 		maxDispatcherSize=8000 
 		#读取缓冲大小 

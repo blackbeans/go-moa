@@ -5,8 +5,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/blackbeans/go-moa/proto"
+	
 	"github.com/blackbeans/turbo"
 
 	_ "fmt"
@@ -45,6 +44,21 @@ func (self DemoProxy) ProxyDemoComplexSlice(text string, arg2 map[string]ProxyPa
 	return ProxyResult{"test", text}, nil
 }
 
+func MoaRequest2Raw(req *MoaReqPacket) *MoaRawReqPacket {
+	raw := &MoaRawReqPacket{}
+	raw.ServiceUri = req.ServiceUri
+
+	raw.Params.Method = req.Params.Method
+	rawArgs := make([]json.RawMessage, 0, len(req.Params.Args))
+	for _, a := range req.Params.Args {
+		rw, _ := json.Marshal(a)
+		rawArgs = append(rawArgs, json.RawMessage(rw))
+	}
+	raw.Params.Args = rawArgs
+	raw.Timeout = req.Timeout
+	return raw
+}
+
 var stat = NewMoaStat("hostname", "serviceUri",
 	func(serviceUri, host string, moainfo MoaInfo) {}, func() turbo.NetworkStat { return turbo.NetworkStat{} })
 
@@ -71,12 +85,12 @@ func TestInvocationHandler(t *testing.T) {
 func TestInvocationInvoke(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
-	req := &proto.MoaReqPacket{}
+	req := &MoaReqPacket{}
 	req.ServiceUri = "demo"
 	req.Params.Args = []interface{}{"fuck", DemoParam{"you"}}
 	req.Params.Method = "proxydemo"
 	req.Timeout = 5 * time.Second
-	resp := handler.Invoke(proto.MoaRequest2Raw(req))
+	resp := handler.Invoke(MoaRequest2Raw(req))
 	t.Logf("TestInvocationInvoke|Invoke|%s\n", resp)
 	if resp.ErrCode != 200 && resp.ErrCode != 0 {
 		t.Fail()
@@ -90,12 +104,12 @@ func TestInvocationInvoke(t *testing.T) {
 func TestInvokeProxyDemoSlice(t *testing.T) {
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
-	req := &proto.MoaReqPacket{}
+	req := &MoaReqPacket{}
 	req.ServiceUri = "demo"
 	req.Params.Args = []interface{}{"fuck", []string{"a", "b"}, ProxyParam{"you"}}
 	req.Params.Method = "ProxyDemoSlice"
 	req.Timeout = 5 * time.Second
-	resp := handler.Invoke(proto.MoaRequest2Raw(req))
+	resp := handler.Invoke(MoaRequest2Raw(req))
 	t.Logf("TestInvokeProxyDemoSlice|Invoke|%s\n", resp.Result)
 	if resp.ErrCode != 200 && resp.ErrCode != 0 {
 		t.Fail()
@@ -110,7 +124,7 @@ func TestInvokeJsonParams(t *testing.T) {
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
 
 	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"ProxyDemoSlice\",\"args\":[\"fuck\",[\"a\", \"b\"],{\"Name\":\"you\"}]}}"
-	var req proto.MoaRawReqPacket
+	var req MoaRawReqPacket
 	err := json.Unmarshal([]byte(cmd), &req)
 	if nil != err {
 		t.Error(err)
@@ -136,7 +150,7 @@ func TestComplexSliceJsonParams(t *testing.T) {
 		stat)
 
 	cmd := "{\"action\":\"demo\",\"params\":{\"m\":\"ProxyDemoComplexSlice\",\"args\":[\"fuck\",{\"key\":{\"Name\":\"you\"}},[{\"key\":{\"Name\":\"you\"}},{\"key\":{\"Name\":\"you\"}}]]}}"
-	var req proto.MoaRawReqPacket
+	var req MoaRawReqPacket
 	err := json.Unmarshal([]byte(cmd), &req)
 	if nil != err {
 		t.Error(err)
