@@ -11,6 +11,7 @@ import (
 	log "github.com/blackbeans/log4go"
 	"context"
 	"github.com/blackbeans/pool"
+	"errors"
 )
 
 type MethodMeta struct {
@@ -150,16 +151,12 @@ func (self InvocationHandler) Invoke(packet *MoaRawReqPacket) *MoaRespPacket {
 					defer func() {
 						future <- nil
 					}()
+					//任务被取消
 					if wu.IsCancelled(){
+						ir.err = errors.New("Request Canceled")
 						return ir,nil
 					}
 					ir.values = m.Method.Call(params)
-					if len(m.ReturnType) <= 1 {
-						if !ir.values[0].IsNil() {
-							//其实就是个err
-							ir.err = ir.values[0]
-						}
-					}
 					return ir,nil
 				})
 
@@ -167,37 +164,43 @@ func (self InvocationHandler) Invoke(packet *MoaRawReqPacket) *MoaRespPacket {
 				case  <-future:
 					//等待结果
 					work.Wait()
+					//有系统级错误
 					if nil != work.Error() {
 						log.ErrorLog("moa-server", "InvocationHandler|Invoke|Call|FAIL|%v|Source:%s|%s|%s|%s|%s",
 							work.Error(), packet.Source, packet.ServiceUri, m.Name, params)
 						self.moaStat.IncreaseError()
+						errMsg := work.Error().Error()
 						resp.ErrCode = CODE_INVOCATION_TARGET
-						resp.Message = fmt.Sprintf(MSG_INVOCATION_TARGET, work.Error())
-					}else if nil!=work.Value() {
+						resp.Message = fmt.Sprintf(MSG_INVOCATION_TARGET, errMsg)
+					}else  {
+						//正常返回了invokeResult
 						r := work.Value().(*invokeResult)
-						if nil!=r.values {
-							self.moaStat.IncreaseProc()
-							resp.ErrCode = CODE_SERVER_SUCC
-							resp.Result = r.values[0].Interface()
-							//则肯定会有error
-							if len(r.values) > 1 && !r.values[1].IsNil() {
-								resp.Message = fmt.Sprintf("Method Invoke Error %v", r.values[1].Interface())
-							}
-						}else{
-							//如果为空、说明是取消的任务
+						if nil != r.err {
+							self.moaStat.IncreaseError()
+							resp.ErrCode = CODE_INVOCATION_TARGET
+							resp.Message = fmt.Sprintf("Invoke FAIL (%v) ", r.err)
+						} else if nil == r.values {
 							self.moaStat.IncreaseError()
 							resp.ErrCode = CODE_INVOCATION_TARGET
 							resp.Message = fmt.Sprintf("NO Result ...")
+						} else {
+							self.moaStat.IncreaseProc()
+							resp.ErrCode = CODE_SERVER_SUCC
+							resp.Result = r.values[0].Interface()
+							if len(m.ReturnType) <= 1 {
+								if !r.values[0].IsNil() {
+									//其实就是个err
+									resp.Message = fmt.Sprintf("%v",r.values[0])
+								}
+							}else if !r.values[1].IsNil() {
+								//2个返回参数第二个如果不为空调用返回了error
+								resp.Message  = fmt.Sprintf("%v",r.values[1])
+							}
 						}
-					} else{
-						self.moaStat.IncreaseError()
-						resp.ErrCode = CODE_INVOCATION_TARGET
-						resp.Message = fmt.Sprintf("NO Result ...")
 					}
 				case <-ctx.Done():
 					//cancel
 					work.Cancel()
-
 					self.moaStat.IncreaseTimeout()
 					resp.ErrCode = CODE_TIMEOUT_SERVER
 					resp.Message = fmt.Sprintf(MSG_TIMEOUT,

@@ -98,7 +98,7 @@ func init() {
 
 	config := turbo.NewTConfig(
 		"turbo-client:localhost:28888",
-		1000, 16*1024,
+		10, 16*1024,
 		16*1024, 20000, 20000,
 		10*time.Second, 160000)
 
@@ -143,6 +143,24 @@ func TestApplication(t *testing.T) {
 	}
 
 	t.Logf("Recieve|PONG|%s", val)
+
+	//panic
+
+	reqPacket.ServiceUri = "/service/lookup"
+	reqPacket.Params.Method = "HelloError"
+	reqPacket.Params.Args = []interface{}{"error test"}
+
+	p = turbo.NewPacket(REQ, nil)
+	p.PayLoad = reqPacket
+
+	val, err = tclient.WriteAndGet(*p, 60*time.Second)
+	if nil != err {
+		t.Logf("WriteAndGet|FAIL|%v\n", err)
+		t.FailNow()
+
+	}
+
+	t.Logf("%v\n", string(val.([]byte)))
 }
 
 

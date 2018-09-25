@@ -16,7 +16,7 @@
 		registry="zk://localhost:2181"
 		processTimeout=20
 		#最大分发处理协程数
-		maxDispatcherSize=8000 
+		maxDispatcherSize=10
 		#读取缓冲大小 
 		readBufferSize=16384 
 		#写入缓冲大小
@@ -30,7 +30,7 @@
 		registry="zk://vm-bibi-zk-mq001.vm:2181,vm-bibi-zk-mq002.vm:2181,vm-bibi-zk-mq003.vm:2181" 
 		processTimeout=20
 		#最大分发处理协程数
-		maxDispatcherSize=8000 
+		maxDispatcherSize=100
 		#读取缓冲大小 
 		readBufferSize=16384
 		#写入缓冲大小

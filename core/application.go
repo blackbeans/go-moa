@@ -67,8 +67,8 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		50*10000)
 
 	gopool := pool.NewExtLimited(
-		uint(cluster.MaxDispatcherSize/2),
-		uint(cluster.MaxDispatcherSize),
+		uint(cluster.WorkerPoolSize/2),
+		uint(cluster.WorkerPoolSize),
 		1000,
 		1*time.Minute)
 
