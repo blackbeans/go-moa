@@ -10,6 +10,7 @@ import (
 	"github.com/blackbeans/turbo"
 	log "github.com/blackbeans/log4go"
 	"context"
+	"github.com/blackbeans/pool"
 )
 
 type MethodMeta struct {
@@ -31,12 +32,13 @@ type Service struct {
 type InvocationHandler struct {
 	instances map[string]Service
 	moaStat   *MoaStat
+	gopool pool.Pool
 	tw        *turbo.TimerWheel
 }
 
 var errorType = reflect.TypeOf(make([]error, 1)).Elem()
 
-func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandler {
+func NewInvocationHandler(services []Service, moaStat *MoaStat,gopool pool.Pool) *InvocationHandler {
 
 	tw := turbo.NewTimerWheel(10*time.Millisecond, 100)
 	instances := make(map[string]Service, len(services))
@@ -91,7 +93,8 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 	}
 	return &InvocationHandler{instances: instances,
 		moaStat: moaStat,
-		tw:      tw}
+		tw: tw,
+		gopool: gopool}
 
 }
 
@@ -140,20 +143,16 @@ func (self InvocationHandler) Invoke(packet *MoaRawReqPacket) *MoaRespPacket {
 
 				ctx,cancel := context.WithTimeout(context.Background(),packet.Timeout)
 				defer cancel()
-				result := make(chan invokeResult,1)
-				go func() {
-					ir := invokeResult{}
-					defer func() {
-						if err := recover(); nil != err {
-							//TODO LOG ERROR
-							log.ErrorLog("moa-server", "InvocationHandler|Invoke|Call|FAIL|%v|Source:%s|%s|%s|%s|%s",
-								err, packet.Source, packet.ServiceUri, m.Name, params)
-							resp.Message = fmt.Sprintf(MSG_INVOCATION_TARGET, err)
-							ir.err = err
-							result  <- ir
-						}
-					}()
+				future := make(chan *interface{},1)
 
+				work :=self.gopool.Queue(func(wu pool.WorkUnit) (interface{}, error) {
+					ir := &invokeResult{}
+					defer func() {
+						future <- nil
+					}()
+					if wu.IsCancelled(){
+						return ir,nil
+					}
 					ir.values = m.Method.Call(params)
 					if len(m.ReturnType) <= 1 {
 						if !ir.values[0].IsNil() {
@@ -161,30 +160,43 @@ func (self InvocationHandler) Invoke(packet *MoaRawReqPacket) *MoaRespPacket {
 							ir.err = ir.values[0]
 						}
 					}
-					result  <- ir
+					return ir,nil
+				})
 
-				}()
 				select {
-				case  r:=<-result:
-					if nil != r.err {
+				case  <-future:
+					//等待结果
+					work.Wait()
+					if nil != work.Error() {
+						log.ErrorLog("moa-server", "InvocationHandler|Invoke|Call|FAIL|%v|Source:%s|%s|%s|%s|%s",
+							work.Error(), packet.Source, packet.ServiceUri, m.Name, params)
 						self.moaStat.IncreaseError()
 						resp.ErrCode = CODE_INVOCATION_TARGET
-						resp.Message = fmt.Sprintf("Invoke FAIL (%v) ", r.err)
-					} else if nil == r.values {
+						resp.Message = fmt.Sprintf(MSG_INVOCATION_TARGET, work.Error())
+					}else if nil!=work.Value() {
+						r := work.Value().(*invokeResult)
+						if nil!=r.values {
+							self.moaStat.IncreaseProc()
+							resp.ErrCode = CODE_SERVER_SUCC
+							resp.Result = r.values[0].Interface()
+							//则肯定会有error
+							if len(r.values) > 1 && !r.values[1].IsNil() {
+								resp.Message = fmt.Sprintf("Method Invoke Error %v", r.values[1].Interface())
+							}
+						}else{
+							//如果为空、说明是取消的任务
+							self.moaStat.IncreaseError()
+							resp.ErrCode = CODE_INVOCATION_TARGET
+							resp.Message = fmt.Sprintf("NO Result ...")
+						}
+					} else{
 						self.moaStat.IncreaseError()
 						resp.ErrCode = CODE_INVOCATION_TARGET
 						resp.Message = fmt.Sprintf("NO Result ...")
-					} else {
-						self.moaStat.IncreaseProc()
-						resp.ErrCode = CODE_SERVER_SUCC
-						resp.Result = r.values[0].Interface()
-						//则肯定会有error
-						if len(r.values) > 1 && !r.values[1].IsNil() {
-							resp.Message = fmt.Sprintf("Method Invoke Error %v", r.values[1].Interface())
-						}
-
 					}
 				case <-ctx.Done():
+					//cancel
+					work.Cancel()
 
 					self.moaStat.IncreaseTimeout()
 					resp.ErrCode = CODE_TIMEOUT_SERVER

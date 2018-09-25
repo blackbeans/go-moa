@@ -9,6 +9,8 @@ import (
 	
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
+	"github.com/blackbeans/pool"
+	"time"
 )
 
 type ServiceBundle func() []Service
@@ -17,6 +19,8 @@ type Application struct {
 	remoting      *turbo.TServer
 	invokeHandler *InvocationHandler
 	options       Option
+	//任务处理
+	gopool pool.Pool
 	configCenter  *ConfigCenter
 	moaStat       *MoaStat
 }
@@ -62,6 +66,12 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		cluster.IdleTimeout,
 		50*10000)
 
+	gopool := pool.NewExtLimited(
+		uint(cluster.MaxDispatcherSize/2),
+		uint(cluster.MaxDispatcherSize),
+		1000,
+		1*time.Minute)
+
 	//是否启用snappy
 	snappy := false
 	if strings.ToLower(serverOp.Server.Compress) == "snappy" {
@@ -81,15 +91,18 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	app := &Application{}
 	app.options = options
 	app.configCenter = configCenter
+	app.gopool = gopool
+
 	//moastat
 	moaStat := NewMoaStat(serverOp.Server.BindAddress,
-		services[0].ServiceUri, monitor, func() turbo.NetworkStat {
+		services[0].ServiceUri, monitor,
+		func() turbo.NetworkStat {
 			return app.remoting.NetworkStat()
 
 		})
 	app.moaStat = moaStat
 
-	app.invokeHandler = NewInvocationHandler(services, moaStat)
+	app.invokeHandler = NewInvocationHandler(services, moaStat,gopool)
 
 	//启动remoting
 	remoting := turbo.NewTServerWithCodec(
