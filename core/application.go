@@ -2,14 +2,15 @@ package core
 
 import (
 	"fmt"
+	"github.com/google/gops/agent"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"strings"
-	
+
 	log "github.com/blackbeans/log4go"
-	"github.com/blackbeans/turbo"
 	"github.com/blackbeans/pool"
+	"github.com/blackbeans/turbo"
 	"time"
 )
 
@@ -20,9 +21,9 @@ type Application struct {
 	invokeHandler *InvocationHandler
 	options       Option
 	//任务处理
-	gopool pool.Pool
-	configCenter  *ConfigCenter
-	moaStat       *MoaStat
+	gopool       pool.Pool
+	configCenter *ConfigCenter
+	moaStat      *MoaStat
 }
 
 func NewApplcation(configPath string, bundle ServiceBundle) *Application {
@@ -36,6 +37,10 @@ func NewApplcation(configPath string, bundle ServiceBundle) *Application {
 func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	monitor func(serviceUri, host string, moainfo MoaInfo)) *Application {
 	services := bundle()
+
+	if err := agent.Listen(agent.Options{ShutdownCleanup: true}); err != nil {
+		log.ErrorLog("moa-server", "NewApplicationWithAlarm|Agent|FAIL|%v", err)
+	}
 
 	options, err := LoadConfiruation(configPath)
 	if nil != err {
@@ -63,8 +68,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		cluster.ReadBufferSize,
 		cluster.WriteChannelSize,
 		cluster.ReadChannelSize,
-		cluster.IdleTimeout,
-		50*10000)
+		cluster.IdleTimeout)
 
 	gopool := pool.NewExtLimited(
 		uint(cluster.WorkerPoolSize/2),
@@ -102,17 +106,17 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		})
 	app.moaStat = moaStat
 
-	app.invokeHandler = NewInvocationHandler(services, moaStat,gopool)
+	app.invokeHandler = NewInvocationHandler(services, moaStat, gopool)
 
 	//启动remoting
 	remoting := turbo.NewTServerWithCodec(
 		serverOp.Server.BindAddress,
 		config,
 		codec,
-		func(ctx *turbo.TContext) error{
-			dis(app,ctx)
+		func(ctx *turbo.TContext) error {
+			dis(app, ctx)
 			return nil
-		},)
+		})
 	app.remoting = remoting
 	remoting.ListenAndServer()
 	moaStat.StartLog()
@@ -150,11 +154,11 @@ func dis(self *Application, ctx *turbo.TContext) {
 
 	p := ctx.Message
 	//如果是错误的，那么久直接写出错误的响应给客户端
-	if nil!=ctx.Err{
+	if nil != ctx.Err {
 		resp := turbo.NewRespPacket(p.Header.Opaque, RESP, nil)
-		resp.PayLoad = MoaRespPacket{ErrCode:CODE_THROWABLE,Message:fmt.Sprintf("%v",ctx.Err)}
+		resp.PayLoad = MoaRespPacket{ErrCode: CODE_THROWABLE, Message: fmt.Sprintf("%v", ctx.Err)}
 		//需要发送调用的错误给客户端
-		log.ErrorLog("moa-server", "Application|Err|Process|%v",resp)
+		log.ErrorLog("moa-server", "Application|Err|Process|%v", resp)
 		ctx.Client.Write(*resp)
 		return
 	}
