@@ -100,7 +100,8 @@ func init() {
 		"turbo-client:localhost:28888",
 		10, 16*1024,
 		16*1024, 20000, 20000,
-		10*time.Second)
+		10*time.Second,
+		50*10000)
 
 	tclient = turbo.NewTClient(conn,
 		func() turbo.ICodec {
