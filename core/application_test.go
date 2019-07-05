@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 	"time"
-	
+
 	"github.com/blackbeans/turbo"
 )
 
@@ -100,11 +100,11 @@ func init() {
 		"turbo-client:localhost:28888",
 		10, 16*1024,
 		16*1024, 20000, 20000,
-		10*time.Second, 160000)
+		10*time.Second)
 
 	tclient = turbo.NewTClient(conn,
 		func() turbo.ICodec {
-			return BinaryCodec {
+			return BinaryCodec{
 				MaxFrameLength: turbo.MAX_PACKET_BYTES}
 		}, func(ctx *turbo.TContext) error {
 			ctx.Client.Attach(ctx.Message.Header.Opaque, ctx.Message.Data)
@@ -113,7 +113,6 @@ func init() {
 	tclient.Start()
 
 }
-
 
 func TestApplication(t *testing.T) {
 
@@ -162,7 +161,6 @@ func TestApplication(t *testing.T) {
 
 	t.Logf("%v\n", string(val.([]byte)))
 }
-
 
 func BenchmarkApplication(t *testing.B) {
 	t.StopTimer()
