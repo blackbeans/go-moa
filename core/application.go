@@ -6,10 +6,10 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"strings"
-	
+
 	log "github.com/blackbeans/log4go"
-	"github.com/blackbeans/turbo"
 	"github.com/blackbeans/pool"
+	"github.com/blackbeans/turbo"
 	"time"
 )
 
@@ -20,9 +20,9 @@ type Application struct {
 	invokeHandler *InvocationHandler
 	options       Option
 	//任务处理
-	gopool pool.Pool
-	configCenter  *ConfigCenter
-	moaStat       *MoaStat
+	invokePool   pool.Pool
+	configCenter *ConfigCenter
+	moaStat      *MoaStat
 }
 
 func NewApplcation(configPath string, bundle ServiceBundle) *Application {
@@ -91,7 +91,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	app := &Application{}
 	app.options = options
 	app.configCenter = configCenter
-	app.gopool = gopool
+	app.invokePool = gopool
 
 	//moastat
 	moaStat := NewMoaStat(serverOp.Server.BindAddress,
@@ -102,7 +102,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		})
 	app.moaStat = moaStat
 
-	app.invokeHandler = NewInvocationHandler(services, moaStat,gopool)
+	app.invokeHandler = NewInvocationHandler(services, moaStat)
 
 	//启动remoting
 	remoting := turbo.NewTServerWithCodec(
@@ -161,24 +161,17 @@ func dis(self *Application, ctx *turbo.TContext) {
 
 	//如果是get命令
 	if p.Header.CmdType == REQ {
+		//全异步
+		self.invokePool.Queue(func(wu pool.WorkUnit) (i interface{}, e error) {
+			req := p.PayLoad.(MoaRawReqPacket)
+			//这里面根据解析包的内容得到调用不同的service获得结果
+			req.Source = ctx.Client.RemoteAddr()
+			req.Timeout = self.options.Clusters[self.options.Server.RunMode].ProcessTimeout
+			self.invokeHandler.Invoke(req, ctx)
+			return nil, nil
+		})
 
-		req := p.PayLoad.(MoaRawReqPacket)
 
-		//这里面根据解析包的内容得到调用不同的service获得结果
-		req.Source = ctx.Client.RemoteAddr()
-		req.Timeout = self.options.Clusters[self.options.Server.RunMode].ProcessTimeout
-		result := self.invokeHandler.Invoke(&req)
-
-		resp := turbo.NewRespPacket(p.Header.Opaque, RESP, nil)
-		resp.PayLoad = *result
-		if nil != result && (result.ErrCode != 0 && result.ErrCode != CODE_SERVER_SUCC) {
-			//需要发送调用的错误给客户端
-			log.ErrorLog("moa-server", "Application|Invoke|Timeout|%v", req)
-			ctx.Client.Write(*resp)
-			return
-		}
-
-		ctx.Client.Write(*resp)
 		//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
 
 	} else if p.Header.CmdType == PING {
