@@ -1,4 +1,4 @@
-package lb
+package core
 
 import (
 	"github.com/blackbeans/go-zookeeper/zk"

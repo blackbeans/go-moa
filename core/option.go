@@ -40,11 +40,13 @@ type Cluster struct {
 	Registry          string        //配置中心
 	ProcessTimeout    time.Duration //处理超时 5 s单位
 	IdleTimeout       time.Duration //链接空闲时间 5 * 60s
-	MaxDispatcherSize int           //=8000//最大分发处理协程数
+	MaxDispatcherSize int           //=50//最大分发处理协程数
+	WorkerPoolSize    int           //=100 //最大业务处理线程池
 	ReadBufferSize    int           //=16 * 1024 //读取缓冲大小
 	WriteBufferSize   int           //=16 * 1024 //写入缓冲大小
 	WriteChannelSize  int           //=1000 //写异步channel长度
 	ReadChannelSize   int           //=1000 //读异步channel长度
+	FutureSize        int           //默认值 100 * 10000  //请求响应的容量
 }
 
 func LoadConfiruation(path string) (Option, error) {
@@ -96,6 +98,15 @@ func LoadConfiruation(path string) (Option, error) {
 			time.Duration(int64(cluster.IdleTimeout) * int64(time.Second))
 		if cluster.ProcessTimeout <= 0 {
 			cluster.ProcessTimeout = 5
+		}
+
+		//工作池子
+		if cluster.WorkerPoolSize <= 0 {
+			cluster.WorkerPoolSize = cluster.MaxDispatcherSize
+		}
+
+		if cluster.FutureSize <= 100*10000 {
+			cluster.FutureSize = 100 * 10000
 		}
 
 		cluster.ProcessTimeout =

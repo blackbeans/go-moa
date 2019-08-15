@@ -1,4 +1,4 @@
-package lb
+package core
 
 import (
 	"testing"

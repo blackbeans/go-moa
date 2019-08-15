@@ -3,7 +3,6 @@ package core
 import (
 	"strings"
 
-	"github.com/blackbeans/go-moa/lb"
 	log "github.com/blackbeans/log4go"
 )
 
@@ -12,7 +11,7 @@ const (
 )
 
 type ConfigCenter struct {
-	registry lb.IRegistry
+	registry IRegistry
 	services []Service
 	hostport string
 }
@@ -20,13 +19,13 @@ type ConfigCenter struct {
 //用于创建
 func NewConfigCenter(registryAddr,
 	hostport string, services []Service) *ConfigCenter {
-	var reg lb.IRegistry
+	var reg IRegistry
 	if strings.HasPrefix(registryAddr, SCHEMA_ZK) {
 		uris := make([]string, 0, 10)
 		for _, s := range services {
-			uris = append(uris, lb.BuildServiceUri(s.ServiceUri, s.GroupId))
+			uris = append(uris, BuildServiceUri(s.ServiceUri, s.GroupId))
 		}
-		reg = lb.NewZkRegistry(strings.TrimPrefix(registryAddr, SCHEMA_ZK), uris, true)
+		reg = NewZkRegistry(strings.TrimPrefix(registryAddr, SCHEMA_ZK), uris, true)
 	}
 	center := &ConfigCenter{registry: reg, services: services, hostport: hostport}
 	//	 zookeeper发布一次吧
@@ -37,7 +36,7 @@ func NewConfigCenter(registryAddr,
 func (self ConfigCenter) RegisteAllServices() {
 	//注册服务
 	for _, s := range self.services {
-		succ := self.RegisteService(s.ServiceUri, self.hostport, lb.PROTOCOL, s.GroupId)
+		succ := self.RegisteService(s.ServiceUri, self.hostport, PROTOCOL, s.GroupId)
 		if !succ {
 			panic("ConfigCenter|RegisteAllServices|FAIL|" + s.ServiceUri)
 		}
@@ -60,7 +59,7 @@ func (self ConfigCenter) GetService(serviceUri, protoType string, groupid string
 func (self ConfigCenter) Destroy() {
 	//注册服务
 	for _, s := range self.services {
-		succ := self.UnRegisteService(s.ServiceUri, self.hostport, lb.PROTOCOL, s.GroupId)
+		succ := self.UnRegisteService(s.ServiceUri, self.hostport, PROTOCOL, s.GroupId)
 		if succ {
 			log.InfoLog("config_center", "ConfigCenter|Destroy|UnRegisteService|SUCC|%s", s.ServiceUri)
 		} else {
