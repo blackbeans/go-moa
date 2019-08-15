@@ -25,7 +25,7 @@ type Application struct {
 	moaStat      *MoaStat
 }
 
-func NewApplcation(configPath string, bundle ServiceBundle) *Application {
+func NewApplication(configPath string, bundle ServiceBundle) *Application {
 	return NewApplicationWithAlarm(configPath, bundle,
 		func(serviceUri, hostname string, moaInfo MoaInfo) {
 			//do nothing

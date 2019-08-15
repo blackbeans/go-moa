@@ -66,7 +66,7 @@ var tclient *turbo.TClient
 func init() {
 	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
 	inter := (*IHello)(nil)
-	NewApplcation("../conf/moa.toml", func() []Service {
+	NewApplication("../conf/moa.toml", func() []Service {
 		return []Service{
 			Service{
 				ServiceUri: "/service/lookup",
