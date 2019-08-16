@@ -8,7 +8,6 @@ import (
 	"time"
 
 	log "github.com/blackbeans/log4go"
-	"github.com/blackbeans/turbo"
 )
 
 type MethodMeta struct {
@@ -65,7 +64,7 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 				if !t.Out(t.NumOut() - 1).Implements(errorType) {
 					panic(
 						fmt.Errorf("%s Method  %s Last Return Type Must Be An Error! [%s]",
-							s.ServiceUri, m.Name, t.Out(t.NumOut() - 1).String()))
+							s.ServiceUri, m.Name, t.Out(t.NumOut()-1).String()))
 				}
 			} else {
 				panic(
@@ -91,10 +90,17 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 }
 
 //执行结果
-func (self InvocationHandler) Invoke(req MoaRawReqPacket,tctx *turbo.TContext){
+func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp MoaRespPacket) error) {
 	self.moaStat.IncreaseRecv()
 	now := time.Now()
 	resp := MoaRespPacket{}
+
+	//请求给到pool执行延迟
+	if (now.UnixNano()/int64(time.Millisecond) - req.CreateTime) >= 500 {
+		log.WarnLog("moa-server", "InvocationHandler|Invoke|Call|Delay|Source:%s|Cost[%d]ms|%s|%s",
+			req.Source, (now.UnixNano()/int64(time.Millisecond) - req.CreateTime), req.ServiceUri, req.Params.Method)
+	}
+
 	//需要对包的内容解析进行反射调用
 	instance, ok := self.instances[req.ServiceUri]
 	if !ok {
@@ -132,7 +138,7 @@ func (self InvocationHandler) Invoke(req MoaRawReqPacket,tctx *turbo.TContext){
 				if resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC {
 					self.moaStat.IncreaseError()
 				} else {
-					work := self.invoke(m, params...)
+					work := invoke(m, params...)
 					if nil != work.err {
 						log.ErrorLog("moa-server", "InvocationHandler|Invoke|Call|FAIL|%v|Source:%s|%s|%s|%s|%s",
 							work.err, req.Source, req.ServiceUri, m.Name, params)
@@ -154,30 +160,30 @@ func (self InvocationHandler) Invoke(req MoaRawReqPacket,tctx *turbo.TContext){
 						resp.Message = fmt.Sprintf("NO Result ...")
 					}
 				}
-
 				//超时了
-				if time.Now().Sub(now) >=  req.Timeout{
+				cost := time.Now().Sub(now)
+				if cost/time.Millisecond >= 1000 {
+					log.WarnLog("moa-server", "InvocationHandler|Invoke|Call|Slow|Source:%s|Cost[%d]ms|%s|%s|%v",
+						req.Source, cost/time.Millisecond, req.ServiceUri, m.Name, params)
+				}
+
+				if cost >= req.Timeout {
 					//丢弃结果
-					log.WarnLog("moa-server", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|%s|%s|%v",
-						req.Source, req.Timeout/time.Millisecond, req.ServiceUri, m.Name, params)
-				}else{
-					//正常
-					respPacker := turbo.NewRespPacket(tctx.Message.Header.Opaque, RESP, nil)
-					respPacker.PayLoad = resp
-					if  (resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC) {
-						//需要发送调用的错误给客户端
-						log.ErrorLog("moa-server", "Application|Invoke|FAIL|%v", tctx.Message)
-						tctx.Client.Write(*respPacker)
-						return
+					log.WarnLog("moa-server", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|Cost:%d|%s|%s|%v",
+						req.Source, req.Timeout/time.Millisecond, cost/time.Millisecond, req.ServiceUri, m.Name, params)
+				} else {
+					err := onCallback(resp)
+					if nil != err {
+						log.ErrorLog("moa-server", "InvocationHandler|Invoke|onCallback|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", err,
+							req.Source, req.Timeout/time.Millisecond, req.ServiceUri, m.Name, params)
 					}
-					tctx.Client.Write(*respPacker)
 				}
 			}
 		}
 	}
 }
 
-func (self *InvocationHandler) invoke(m MethodMeta, params ...reflect.Value) invokeResult {
+func invoke(m MethodMeta, params ...reflect.Value) invokeResult {
 	ir := invokeResult{}
 	ir.values = m.Method.Call(params)
 	if len(m.ReturnType) <= 1 {
@@ -189,6 +195,7 @@ func (self *InvocationHandler) invoke(m MethodMeta, params ...reflect.Value) inv
 
 	return ir
 }
+
 type invokeResult struct {
 	err    interface{}
 	values []reflect.Value

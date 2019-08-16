@@ -109,12 +109,15 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		serverOp.Server.BindAddress,
 		config,
 		codec,
-		func(ctx *turbo.TContext) error{
-			dis(app,ctx)
+		func(ctx *turbo.TContext) error {
+			dis(app, ctx)
 			return nil
-		},)
+		})
 	app.remoting = remoting
-	remoting.ListenAndServer()
+	err = remoting.ListenAndServer()
+	if nil != err {
+		panic(err)
+	}
 	moaStat.StartLog()
 
 	//------------启动pprof
@@ -150,28 +153,44 @@ func dis(self *Application, ctx *turbo.TContext) {
 
 	p := ctx.Message
 	//如果是错误的，那么久直接写出错误的响应给客户端
-	if nil!=ctx.Err{
+	if nil != ctx.Err {
 		resp := turbo.NewRespPacket(p.Header.Opaque, RESP, nil)
-		resp.PayLoad = MoaRespPacket{ErrCode:CODE_THROWABLE,Message:fmt.Sprintf("%v",ctx.Err)}
+		resp.PayLoad = MoaRespPacket{ErrCode: CODE_THROWABLE, Message: fmt.Sprintf("%v", ctx.Err)}
 		//需要发送调用的错误给客户端
-		log.ErrorLog("moa-server", "Application|Err|Process|%v",resp)
+		log.ErrorLog("moa-server", "Application|Err|Process|%v", resp)
 		ctx.Client.Write(*resp)
 		return
 	}
 
 	//如果是get命令
 	if p.Header.CmdType == REQ {
-		//全异步
-		self.invokePool.Queue(func(wu pool.WorkUnit) (i interface{}, e error) {
-			req := p.PayLoad.(MoaRawReqPacket)
-			//这里面根据解析包的内容得到调用不同的service获得结果
-			req.Source = ctx.Client.RemoteAddr()
-			req.Timeout = self.options.Clusters[self.options.Server.RunMode].ProcessTimeout
-			self.invokeHandler.Invoke(req, ctx)
-			return nil, nil
-		})
 
+		req := p.PayLoad.(MoaRawReqPacket)
 
+		//这里面根据解析包的内容得到调用不同的service获得结果
+		req.Source = ctx.Client.RemoteAddr()
+		req.Timeout = self.options.Clusters[self.options.Server.RunMode].ProcessTimeout
+		//是否已经超时过期了，那么久不用执行调用了
+		if req.CreateTime > 0 && (time.Now().UnixNano()-req.CreateTime*int64(time.Millisecond)) >= int64(req.Timeout) {
+			log.WarnLog("moa-server", "InvocationHandler|Invoke|Timeout|Source:%s|Timeout[%d]ms|%s|%s",
+				req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.Params.Method)
+		} else {
+			//全异步
+			self.invokePool.Queue(func(wu pool.WorkUnit) (i interface{}, e error) {
+
+				self.invokeHandler.Invoke(req, func(resp MoaRespPacket) error {
+					//正常
+					respPacker := turbo.NewRespPacket(ctx.Message.Header.Opaque, RESP, nil)
+					respPacker.PayLoad = resp
+					if resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC {
+						//需要发送调用的错误给客户端
+						log.ErrorLog("moa-server", "Application|Invoke|FAIL|%v", ctx.Message)
+					}
+					return ctx.Client.Write(*respPacker)
+				})
+				return nil, nil
+			})
+		}
 		//log.DebugLog("moa-server", "Application|packetDispatcher|SUCC|%s", *resp)
 
 	} else if p.Header.CmdType == PING {

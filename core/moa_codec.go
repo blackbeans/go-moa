@@ -71,6 +71,9 @@ func (self BinaryCodec) UnmarshalPayload(p *turbo.Packet) (interface{}, error) {
 		if nil != err {
 			return turbo.Packet{}, err
 		}
+		if req.CreateTime <= 0 {
+			req.CreateTime = time.Now().UnixNano() / int64(time.Millisecond)
+		}
 		p.PayLoad = *req
 	} else if p.Header.CmdType == PING || p.Header.CmdType == PONG {
 		//ping
@@ -109,7 +112,6 @@ func (self BinaryCodec) MarshalPayload(p *turbo.Packet) ([]byte, error) {
 			resp = MoaRespPacket{ErrCode: CODE_SERIALIZATION_SERVER,
 				Message: "Invalid PayLoad Type Not MoaRespPacket"}
 		}
-
 		data, err := json.Marshal(resp)
 		if nil != err {
 			log4go.ErrorLog("stderr", "BinaryCodec|MarshalPacket|Marshal|FAIL", err)
@@ -117,7 +119,7 @@ func (self BinaryCodec) MarshalPayload(p *turbo.Packet) ([]byte, error) {
 				Message: "Invalid PayLoad Type Not MoaRespPacket"}
 			data, _ = json.Marshal(resp)
 		}
-		rawPayload =  data
+		rawPayload = data
 	}
 
 	return rawPayload, nil
@@ -134,7 +136,8 @@ type MoaReqPacket struct {
 		Method string        `json:"m"`
 		Args   []interface{} `json:"args"`
 	} `json:"params"`
-	Timeout time.Duration `json:"-"`
+	CreateTime int64         `json:"-"` //创建时间 ms
+	Timeout    time.Duration `json:"-"`
 }
 
 //moa请求协议的包
@@ -144,24 +147,26 @@ type MoaRawReqPacket struct {
 		Method string            `json:"m"`
 		Args   []json.RawMessage `json:"args"`
 	} `json:"params"`
-	Timeout time.Duration `json:"-"`
-	Source  string        `json:"-"`
+	CreateTime int64         `json:"-"` //创建时间 ms
+	Timeout    time.Duration `json:"-"`
+	Source     string        `json:"-"`
 }
 
 //moa响应packet
 type MoaRespPacket struct {
-	ErrCode int         `json:"ec"`
-	Message string      `json:"em"`
-	Result  interface{} `json:"result"`
+	ErrCode    int         `json:"ec"`
+	Message    string      `json:"em"`
+	CreateTime int64       `json:"-"` //创建时间 ms
+	Result     interface{} `json:"result"`
 }
 
 //moa响应packet
 type MoaRawRespPacket struct {
-	ErrCode int             `json:"ec"`
-	Message string          `json:"em"`
-	Result  json.RawMessage `json:"result"`
+	ErrCode    int             `json:"ec"`
+	Message    string          `json:"em"`
+	CreateTime int64           `json:"-"` //创建时间 ms
+	Result     json.RawMessage `json:"result"`
 }
-
 
 func Wrap2MoaRawRequest(data []byte) (*MoaRawReqPacket, error) {
 	var req MoaRawReqPacket
@@ -182,4 +187,3 @@ func Wrap2MoaRawResponse(data []byte) (*MoaRawRespPacket, error) {
 	}
 	return &resp, nil
 }
-
