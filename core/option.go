@@ -29,7 +29,7 @@ type Option struct {
 		RunMode          string
 		Compress         string // compres=snappy
 		SelectorStrategy string //selectorstrategy="random"
-
+		SlowLog          bool   //是否打开slowlog
 	}
 	Clusters map[string]Cluster //各集群的配置
 }
