@@ -3,6 +3,7 @@ package core
 import (
 	"math/rand"
 	"sync"
+	"time"
 )
 
 type RandomStrategy struct {
@@ -30,6 +31,8 @@ func (self *RandomStrategy) Select(key string) string {
 	if len(self.nodes) <= 0 {
 		return ""
 	}
+
+	rand.Seed(time.Now().UnixNano())
 	return self.nodes[rand.Intn(self.length)]
 }
 
