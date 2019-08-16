@@ -29,7 +29,7 @@ type Option struct {
 		RunMode          string
 		Compress         string // compres=snappy
 		SelectorStrategy string //selectorstrategy="random"
-		SlowLog          bool   //是否打开slowlog
+		SlowLog          *bool  //是否打开slowlog ,默认打开
 	}
 	Clusters map[string]Cluster //各集群的配置
 }
@@ -66,6 +66,11 @@ func LoadConfiruation(path string) (Option, error) {
 	if nil != err {
 		return Option{}, err
 	}
+
+	if nil == option.Client.SlowLog {
+		*option.Client.SlowLog = true
+	}
+
 	clusters := make(map[string]Cluster, len(option.Clusters))
 	//设置默认值
 	for name, cluster := range option.Clusters {
