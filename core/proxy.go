@@ -82,7 +82,7 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 			s.methods[strings.ToLower(m.Name)] = mm
 		}
 		instances[s.ServiceUri] = s
-		log.InfoLog("moa-server", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
+		log.InfoLog("moa_server", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
 	}
 	return &InvocationHandler{instances: instances,
 		moaStat: moaStat}
@@ -97,7 +97,7 @@ func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp M
 
 	//请求给到pool执行延迟
 	if (now.UnixNano()/int64(time.Millisecond) - req.CreateTime) >= 500 {
-		log.WarnLog("moa-server", "InvocationHandler|Invoke|Call|Delay|Source:%s|Cost[%d]ms|%s|%s",
+		log.WarnLog("moa_server", "InvocationHandler|Invoke|Call|Delay|Source:%s|Cost[%d]ms|%s|%s",
 			req.Source, (now.UnixNano()/int64(time.Millisecond) - req.CreateTime), req.ServiceUri, req.Params.Method)
 	}
 
@@ -140,7 +140,7 @@ func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp M
 				} else {
 					work := invoke(m, params...)
 					if nil != work.err {
-						log.ErrorLog("moa-server", "InvocationHandler|Invoke|Call|FAIL|%v|Source:%s|%s|%s|%s|%s",
+						log.ErrorLog("moa_server", "InvocationHandler|Invoke|Call|FAIL|%v|Source:%s|%s|%s|%s|%s",
 							work.err, req.Source, req.ServiceUri, m.Name, params)
 						self.moaStat.IncreaseError()
 						resp.ErrCode = CODE_INVOCATION_TARGET
@@ -163,18 +163,18 @@ func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp M
 				//超时了
 				cost := time.Now().Sub(now)
 				if cost/time.Millisecond >= 1000 {
-					log.WarnLog("moa-server", "InvocationHandler|Invoke|Call|Slow|Source:%s|Cost[%d]ms|%s|%s|%v",
+					log.WarnLog("moa_server", "InvocationHandler|Invoke|Call|Slow|Source:%s|Cost[%d]ms|%s|%s|%v",
 						req.Source, cost/time.Millisecond, req.ServiceUri, m.Name, params)
 				}
 
 				if cost >= req.Timeout {
 					//丢弃结果
-					log.WarnLog("moa-server", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|Cost:%d|%s|%s|%v",
+					log.WarnLog("moa_server", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|Cost:%d|%s|%s|%v",
 						req.Source, req.Timeout/time.Millisecond, cost/time.Millisecond, req.ServiceUri, m.Name, params)
 				} else {
 					err := onCallback(resp)
 					if nil != err {
-						log.ErrorLog("moa-server", "InvocationHandler|Invoke|onCallback|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", err,
+						log.ErrorLog("moa_server", "InvocationHandler|Invoke|onCallback|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", err,
 							req.Source, req.Timeout/time.Millisecond, req.ServiceUri, m.Name, params)
 					}
 				}
