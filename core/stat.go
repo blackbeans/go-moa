@@ -86,7 +86,7 @@ func (self *MoaStat) StartLog() {
 				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tMoaQueue\tNetWork")
 				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%d\t%s",
 					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error,
-					self.currMoaInfo.Timeout, self.currMoaInfo.GoroutineCount, self.currMoaInfo.TaskQueue, self.network)
+					self.currMoaInfo.Timeout, self.currMoaInfo.GoroutineCount, self.currMoaInfo.TaskQueue, network)
 				// self.RotateSize = 0
 				atomic.StoreInt32(&self.RotateSize, 0)
 			} else {
