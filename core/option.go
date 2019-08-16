@@ -49,7 +49,7 @@ type Cluster struct {
 	FutureSize        int           //默认值 100 * 10000  //请求响应的容量
 }
 
-func LoadConfiruation(path string) (Option, error) {
+func LoadConfiguration(path string) (Option, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return Option{}, err
@@ -67,10 +67,12 @@ func LoadConfiruation(path string) (Option, error) {
 		return Option{}, err
 	}
 
-	if nil == option.Client.SlowLog {
-		*option.Client.SlowLog = true
-	}
+	slowlog := true
+	if nil != option.Client.SlowLog {
+		slowlog = *(option.Client.SlowLog)
 
+	}
+	option.Client.SlowLog = &slowlog
 	clusters := make(map[string]Cluster, len(option.Clusters))
 	//设置默认值
 	for name, cluster := range option.Clusters {

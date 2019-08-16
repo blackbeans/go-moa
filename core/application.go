@@ -37,7 +37,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	monitor func(serviceUri, host string, moainfo MoaInfo)) *Application {
 	services := bundle()
 
-	options, err := LoadConfiruation(configPath)
+	options, err := LoadConfiguration(configPath)
 	if nil != err {
 		panic(err)
 	}
