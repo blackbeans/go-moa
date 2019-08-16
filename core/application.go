@@ -95,7 +95,8 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	//moastat
 	moaStat := NewMoaStat(serverOp.Server.BindAddress,
-		services[0].ServiceUri, monitor,
+		services[0].ServiceUri, gopool,
+		monitor,
 		func() turbo.NetworkStat {
 			return app.remoting.NetworkStat()
 
