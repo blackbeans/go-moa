@@ -72,7 +72,7 @@ func (self *MoaStat) StartLog() {
 			}
 
 		}()
-		log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tMoaQueue\tNetWork")
+		log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
 		for {
 			<-ticker.C
 			stat := self.network()
@@ -80,8 +80,8 @@ func (self *MoaStat) StartLog() {
 				stat.ReadCount,
 				stat.WriteBytes/1024, stat.WriteCount, stat.DisPoolSize, stat.DisPoolCap, stat.Connections)
 			if self.RotateSize == MAX_ROTATE_SIZE {
-				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\ttNetWork")
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%d\t%s",
+				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
+				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%s",
 					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error,
 					self.currMoaInfo.Timeout, self.currMoaInfo.MoaInvokePool, network)
 				// self.RotateSize = 0
