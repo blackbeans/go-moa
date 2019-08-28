@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -8,7 +9,6 @@ import (
 	"strings"
 
 	log "github.com/blackbeans/log4go"
-	"github.com/blackbeans/pool"
 	"github.com/blackbeans/turbo"
 	"time"
 )
@@ -20,9 +20,10 @@ type Application struct {
 	invokeHandler *InvocationHandler
 	options       Option
 	//任务处理
-	invokePool   pool.Pool
+	invokePool   *turbo.GPool
 	configCenter *ConfigCenter
 	moaStat      *MoaStat
+	stop         context.CancelFunc
 }
 
 func NewApplication(configPath string, bundle ServiceBundle) *Application {
@@ -66,11 +67,11 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		cluster.IdleTimeout,
 		50*10000)
 
-	gopool := pool.NewExtLimited(
-		uint(cluster.MaxDispatcherSize/2),
-		uint(cluster.MaxDispatcherSize),
-		1000,
-		1*time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
+	gopool := turbo.NewLimitPool(
+		ctx,
+		config.TW,
+		cluster.MaxDispatcherSize)
 
 	//是否启用snappy
 	snappy := false
@@ -92,6 +93,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	app.options = options
 	app.configCenter = configCenter
 	app.invokePool = gopool
+	app.stop = cancel
 
 	//moastat
 	moaStat := NewMoaStat(serverOp.Server.BindAddress,
@@ -137,6 +139,8 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 func (self Application) DestroyApplication() {
 
+	self.stop()
+
 	//取消注册服务
 	self.configCenter.Destroy()
 	//关闭remoting
@@ -177,7 +181,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 				req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.Params.Method)
 		} else {
 			//全异步
-			self.invokePool.Queue(func(wu pool.WorkUnit) (i interface{}, e error) {
+			self.invokePool.Queue(func(cctx context.Context) (interface{}, error) {
 
 				self.invokeHandler.Invoke(req, func(resp MoaRespPacket) error {
 					//正常
@@ -190,7 +194,8 @@ func dis(self *Application, ctx *turbo.TContext) {
 					return ctx.Client.Write(*respPacker)
 				})
 				return nil, nil
-			})
+			}, req.Timeout)
+
 		}
 		//log.DebugLog("moa_server", "Application|packetDispatcher|SUCC|%s", *resp)
 

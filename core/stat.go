@@ -2,8 +2,6 @@ package core
 
 import (
 	"fmt"
-	"github.com/blackbeans/pool"
-
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 
@@ -24,17 +22,16 @@ type MoaInfo struct {
 	Proc            int64 `json:"processed_Count"`
 	Error           int64 `json:"error_Count"`
 	Timeout         int64 `json:"error_timeout_Count"`
-	GoroutineCount  int64 `json:"threads_Value"`
-	TaskQueue       int64 `json:"task_queue"` //任务队列
+	MoaInvokePool   int64 `json:"invoke_goroutine"` //moa的调用Pool
 	ConnectionCount int64 `json:"connection_count"`
-	Goroutine       int64 `json:"goroutine"`
+	TotalGoroutine  int64 `json:"total_goroutine"`
 }
 
 //
 type MoaStat struct {
 	preMoaInfo  *MoaInfo
 	currMoaInfo *MoaInfo
-	invokePool  pool.Pool
+	invokePool  *turbo.GPool
 	RotateSize  int32
 	network     func() turbo.NetworkStat
 	MoaTicker   *time.Ticker
@@ -50,7 +47,7 @@ type MoaLog interface {
 }
 
 func NewMoaStat(hostname, serviceUri string,
-	invokePool pool.Pool,
+	invokePool *turbo.GPool,
 	moniotr func(serviceUri, host string, moainfo MoaInfo), network func() turbo.NetworkStat) *MoaStat {
 	moaStat := &MoaStat{
 		currMoaInfo: &MoaInfo{},
@@ -79,29 +76,28 @@ func (self *MoaStat) StartLog() {
 		for {
 			<-ticker.C
 			stat := self.network()
-			network := fmt.Sprintf("R:%dKB/%d\tW:%dKB/%d\tGo:%d\tNetQueue:%d\tCONN:%d", stat.ReadBytes/1024,
+			network := fmt.Sprintf("R:%dKB/%d\tW:%dKB/%d\tGo:%d/%d\tCONN:%d", stat.ReadBytes/1024,
 				stat.ReadCount,
-				stat.WriteBytes/1024, stat.WriteCount, stat.DispatcherGo, stat.GoQueueSize, stat.Connections)
+				stat.WriteBytes/1024, stat.WriteCount, stat.DisPoolSize, stat.DisPoolCap, stat.Connections)
 			if self.RotateSize == MAX_ROTATE_SIZE {
-				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tMoaQueue\tNetWork")
+				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\ttNetWork")
 				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%d\t%s",
 					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error,
-					self.currMoaInfo.Timeout, self.currMoaInfo.GoroutineCount, self.currMoaInfo.TaskQueue, network)
+					self.currMoaInfo.Timeout, self.currMoaInfo.MoaInvokePool, network)
 				// self.RotateSize = 0
 				atomic.StoreInt32(&self.RotateSize, 0)
 			} else {
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%d\t%s",
+				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%s",
 					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error,
-					self.currMoaInfo.Timeout, self.currMoaInfo.GoroutineCount, self.currMoaInfo.TaskQueue, network)
+					self.currMoaInfo.Timeout, self.currMoaInfo.MoaInvokePool, network)
 				// self.RotateSize++
 				atomic.AddInt32(&self.RotateSize, 1)
 			}
 
 			//send data
 			self.currMoaInfo.ConnectionCount = int64(stat.Connections)
-			self.currMoaInfo.GoroutineCount = int64(stat.DispatcherGo)
-			self.currMoaInfo.Goroutine = int64(runtime.NumGoroutine())
-			self.currMoaInfo.TaskQueue = int64(self.invokePool.IncompleteTasks())
+			self.currMoaInfo.MoaInvokePool = int64(stat.DisPoolSize)
+			self.currMoaInfo.TotalGoroutine = int64(runtime.NumGoroutine())
 			self.monitor(self.serviceUri, self.hostname, *self.currMoaInfo)
 			self.reset()
 		}
