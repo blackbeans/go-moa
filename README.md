@@ -28,10 +28,8 @@
     $Zookeeper/bin/zkServer.sh start
     
     ```
-    go get  github.com/blackbeans/go-moa/core
-    go get  github.com/blackbeans/go-moa/lb
-    go get  github.com/blackbeans/go-moa/protocol
-    
+        go get  github.com/blackbeans/go-moa/core
+      
     ```
    
    * 定义服务的接口对应
@@ -78,7 +76,7 @@
                 signal.Notify(ch, os.Kill)
                 //kill掉的server
                 <-ch
-                app.DestoryApplication()
+                app.DestroyApplication()
             }
     
         ```
@@ -89,13 +87,63 @@
         - Applcation需要对应的Moa的配置文件，toml类型，具体配置参见./conf/cluster_test. toml
    * 发布服务成功可以使用客户端进行测试，具体[客户端的使用请参考](http://github.com/blackbeans/go-moa-client/blob/master/README.md)
 
-#### Benchmark
-
-    env:Macbook Pro 2.2 GHz Intel Core i7
+#### Moa状态接口
     
-    redis-benchmark result : 53527.46 requests per second
+* 查询MOA状态信息 
+    
+    URL : 
+    ```http
+        http://host:${moaport+1000}/moa/stat
+    ```
+    返回 :
+    
+        ```json
+        {
+            recv: 0, //接收请求数
+            proc: 0, //处理请求数
+            error: 0, //处理失败数量
+            timeout: 0, //超时数量
+            invoke_gos: 0, //方法执行的gopool 
+            conns: 0, //客户端连接数
+            total_gos: 12 //总goroutine数量
+         }
+        ```
+* 查询MOA发布的服务列表
 
-    go test --bench=".*" github.com/blackbeans/go-moa/core -run=BenchmarkApplication
+    URL :
+     
+    ```http
+        http://host:${moaport+1000}/moa/list/services
+    ```   
+    返回 :
+    
+    ```json
+        [
+          "/service/go-moa"
+        ]
 
-    BenchmarkApplication-8     20000         64517 ns/op
-
+    ```  
+   
+* 查询服务方法调用统计情况
+    
+    URL :  
+    
+    ```http
+        http://host:${moaport+1000}/moa/list/methods?service=/service/go-moa
+    ```
+    返回 :
+    
+    ```json
+        [
+            {
+              client: "192.168.50.88:63072",
+              service_name: "/service/go-moa",
+              methods: [
+                  {
+                    name: "SetName",
+                    count: 58939 //总调用次数
+                  }
+              ]
+          }
+        ]      
+    ```
