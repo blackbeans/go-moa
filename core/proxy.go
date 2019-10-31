@@ -3,8 +3,10 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/blackbeans/turbo"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/blackbeans/log4go"
@@ -24,6 +26,8 @@ type Service struct {
 	Instance   interface{}
 	//方法名称反射对应的方法
 	methods map[string]MethodMeta
+
+	InvokesPerClient *sync.Map //key: remoteip:port values:map[method]Count
 }
 
 type InvocationHandler struct {
@@ -80,6 +84,8 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 
 			}
 			s.methods[strings.ToLower(m.Name)] = mm
+			//单个客户端调用的情况
+			s.InvokesPerClient = &sync.Map{}
 		}
 		instances[s.ServiceUri] = s
 		log.InfoLog("moa_server", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
@@ -87,6 +93,34 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 	return &InvocationHandler{instances: instances,
 		moaStat: moaStat}
 
+}
+
+//服务调用情况
+func (self InvocationHandler) ListInvokes(servicename string) []InvokePerClient {
+
+	service, ok := self.instances[servicename]
+	if ok {
+		clients := make([]InvokePerClient, 0, 10)
+
+		service.InvokesPerClient.Range(func(key, value interface{}) bool {
+			s := InvokePerClient{
+				Client:      key.(string),
+				ServiceName: service.ServiceUri,
+				Methods:     make([]Method, 0, len(service.methods))}
+			//clientip调用的方法及数量
+			value.(*sync.Map).Range(func(key, value interface{}) bool {
+				methodName := key.(string)
+				count := value.(*turbo.Flow).Count()
+				s.Methods = append(s.Methods, Method{Name: methodName, Count: int64(count)})
+				return true
+			})
+			clients = append(clients, s)
+			return true
+		})
+
+		return clients
+	}
+	return []InvokePerClient{}
 }
 
 //执行结果
@@ -114,6 +148,32 @@ func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp M
 			resp.ErrCode = CODE_METHOD_NOT_FOUND
 			resp.Message = fmt.Sprintf(MSG_METHOD_NOT_FOUND, req.Params.Method)
 		} else {
+
+			countPerMethod, ok := instance.InvokesPerClient.Load(req.Source)
+			if !ok {
+				tmp := &sync.Map{}
+				exist, ok := instance.InvokesPerClient.LoadOrStore(req.Source, tmp)
+				if !ok {
+					//么有load到则是缓存放入的
+					countPerMethod = tmp
+				} else {
+					countPerMethod = exist
+				}
+			}
+			flow := countPerMethod.(*sync.Map)
+			counter, ok := flow.Load(m.Name)
+			if !ok {
+				tmp := &turbo.Flow{}
+				exist, ok := flow.LoadOrStore(m.Name, tmp)
+				if !ok {
+					counter = tmp
+				} else {
+					counter = exist
+				}
+			}
+
+			counter.(*turbo.Flow).Incr(1)
+
 			//参数数量不对应
 			if len(req.Params.Args) != len(m.ParamTypes) {
 				self.moaStat.IncreaseError()

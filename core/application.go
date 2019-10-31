@@ -2,10 +2,14 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/google/gops/agent"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	_ "net/http/pprof"
+	"sort"
 	"strings"
 
 	log "github.com/blackbeans/log4go"
@@ -16,6 +20,7 @@ import (
 type ServiceBundle func() []Service
 
 type Application struct {
+	http.Handler
 	remoting      *turbo.TServer
 	invokeHandler *InvocationHandler
 	options       Option
@@ -127,14 +132,94 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	go func() {
 		hp, _ := net.ResolveTCPAddr("tcp4", serverOp.Server.BindAddress)
 		pprof := fmt.Sprintf("%s:%d", hp.IP, (hp.Port + 1000))
-		log.ErrorLog("moa_server", http.ListenAndServe(pprof, nil))
+		log.ErrorLog("moa_server", http.ListenAndServe(pprof, app))
 
+		if err := agent.Listen(agent.Options{ShutdownCleanup: true}); err != nil {
+			log.ErrorLog("handler", "Gops Start  FAIL%s ...")
+		}
 	}()
 
 	//注册服务
 	configCenter.RegisteAllServices()
 	log.InfoLog("moa_server", "Application|Start|SUCC|%s|%s", name, serverOp.Server.BindAddress)
+
+	config.TW.RepeatedTimer(60*time.Second, func(t time.Time) {
+		allclients := remoting.ListClients()
+		sort.Strings(allclients)
+
+		for _, inst := range app.invokeHandler.instances {
+			removeClients := make([]string, 0, 2)
+			inst.InvokesPerClient.Range(func(key, value interface{}) bool {
+				clientip := key.(string)
+				idx := sort.SearchStrings(allclients, clientip)
+				if idx == len(allclients) || allclients[idx] != clientip {
+					removeClients = append(removeClients, clientip)
+				}
+				return true
+			})
+			//移除
+			for _, clientip := range removeClients {
+				inst.InvokesPerClient.Delete(clientip)
+			}
+		}
+	}, nil)
 	return app
+}
+
+//处理Moa的状态信息
+func (self *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	//moa的处理
+	if strings.HasPrefix(r.RequestURI, "/moa/") {
+		//moa的状态信息
+		if strings.HasPrefix(r.RequestURI, "/moa/stat") {
+
+			moaInfo := self.moaStat.GetMoaInfo()
+			rawMoaInfo, _ := json.Marshal(moaInfo)
+			w.Write(rawMoaInfo)
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "text/json")
+			return
+
+		} else if strings.HasPrefix(r.RequestURI, "/moa/list/clients") {
+			//列出所有的客户端
+			clients := self.remoting.ListClients()
+			rawClients, _ := json.Marshal(clients)
+			w.Write(rawClients)
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "text/json")
+			return
+		} else if strings.HasPrefix(r.RequestURI, "/moa/list/services") {
+			//列出所有的services
+			serviceNames := make([]string, 0, 1)
+			for serviceName := range self.invokeHandler.instances {
+				serviceNames = append(serviceNames, serviceName)
+			}
+
+			rawServices, _ := json.Marshal(serviceNames)
+			w.Write(rawServices)
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "text/json")
+			return
+		} else if strings.HasPrefix(r.RequestURI, "/moa/list/methods") {
+			//列出所有的方法 /moa/list/methods?serviceName=user-profile
+			serviceName := r.FormValue("service")
+			if len(serviceName) > 0 {
+				serviceInvoke := self.invokeHandler.ListInvokes(serviceName)
+				//返回发布的方法
+				rawMethods, _ := json.Marshal(serviceInvoke)
+				w.Write(rawMethods)
+			} else {
+				w.Write([]byte("{}"))
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "text/json")
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+
+	} else {
+		pprof.Index(w, r)
+	}
 }
 
 func (self Application) DestroyApplication() {

@@ -17,6 +17,17 @@ const (
 	MOA_STAT_LOG    = "moa-stat"
 )
 
+type Method struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+}
+
+type InvokePerClient struct {
+	Client      string   `json:"client"`
+	ServiceName string   `json:"service_name"`
+	Methods     []Method `json:"methods"`
+}
+
 type MoaInfo struct {
 	Recv            int64 `json:"received_Count"`
 	Proc            int64 `json:"processed_Count"`
