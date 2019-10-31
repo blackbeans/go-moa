@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	_ "net/http/pprof"
 	"sort"
 	"strings"
 
@@ -73,7 +72,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		50*10000)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	gopool := turbo.NewLimitPool(
+	invokePool := turbo.NewLimitPool(
 		ctx,
 		config.TW,
 		cluster.MaxDispatcherSize)
@@ -97,12 +96,12 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	app := &Application{}
 	app.options = options
 	app.configCenter = configCenter
-	app.invokePool = gopool
+	app.invokePool = invokePool
 	app.stop = cancel
 
 	//moastat
 	moaStat := NewMoaStat(serverOp.Server.BindAddress,
-		services[0].ServiceUri, gopool,
+		services[0].ServiceUri, invokePool,
 		monitor,
 		func() turbo.NetworkStat {
 			return app.remoting.NetworkStat()
@@ -131,7 +130,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	//------------启动pprof
 	go func() {
 		hp, _ := net.ResolveTCPAddr("tcp4", serverOp.Server.BindAddress)
-		pprof := fmt.Sprintf("%s:%d", hp.IP, (hp.Port + 1000))
+		pprof := fmt.Sprintf("%s:%d", hp.IP, hp.Port+1000)
 		log.ErrorLog("moa_server", http.ListenAndServe(pprof, app))
 
 		if err := agent.Listen(agent.Options{ShutdownCleanup: true}); err != nil {

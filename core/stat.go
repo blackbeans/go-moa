@@ -29,19 +29,26 @@ type InvokePerClient struct {
 }
 
 type MoaInfo struct {
-	Recv            int64 `json:"received_Count"`
-	Proc            int64 `json:"processed_Count"`
-	Error           int64 `json:"error_Count"`
-	Timeout         int64 `json:"error_timeout_Count"`
-	MoaInvokePool   int64 `json:"invoke_goroutine"` //moa的调用Pool
-	ConnectionCount int64 `json:"connection_count"`
-	TotalGoroutine  int64 `json:"total_goroutine"`
+	Recv           int64 `json:"recv"`
+	Proc           int64 `json:"proc"`
+	Error          int64 `json:"error"`
+	Timeout        int64 `json:"timeout"`
+	MoaInvokePool  int64 `json:"invoke_gos"` //moa的调用Pool
+	Connections    int64 `json:"conns"`
+	TotalGoroutine int64 `json:"total_gos"`
+}
+
+type MoaStatistic struct {
+	Recv    *turbo.Flow
+	Proc    *turbo.Flow
+	Error   *turbo.Flow
+	Timeout *turbo.Flow
 }
 
 //
 type MoaStat struct {
-	preMoaInfo  *MoaInfo
-	currMoaInfo *MoaInfo
+	preMoaInfo  MoaInfo
+	currMoaInfo *MoaStatistic
 	invokePool  *turbo.GPool
 	RotateSize  int32
 	network     func() turbo.NetworkStat
@@ -61,13 +68,18 @@ func NewMoaStat(hostname, serviceUri string,
 	invokePool *turbo.GPool,
 	moniotr func(serviceUri, host string, moainfo MoaInfo), network func() turbo.NetworkStat) *MoaStat {
 	moaStat := &MoaStat{
-		currMoaInfo: &MoaInfo{},
-		invokePool:  invokePool,
-		RotateSize:  0,
-		network:     network,
-		monitor:     moniotr,
-		hostname:    hostname,
-		serviceUri:  serviceUri}
+		currMoaInfo: &MoaStatistic{
+			Recv:    &turbo.Flow{},
+			Proc:    &turbo.Flow{},
+			Error:   &turbo.Flow{},
+			Timeout: &turbo.Flow{},
+		},
+		invokePool: invokePool,
+		RotateSize: 0,
+		network:    network,
+		monitor:    moniotr,
+		hostname:   hostname,
+		serviceUri: serviceUri}
 	return moaStat
 }
 
@@ -86,58 +98,66 @@ func (self *MoaStat) StartLog() {
 		log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
 		for {
 			<-ticker.C
+
+			size, invokeCap := self.invokePool.Monitor()
+			self.preMoaInfo = MoaInfo{
+				Recv:           int64(self.currMoaInfo.Recv.Count()),
+				Proc:           int64(self.currMoaInfo.Proc.Count()),
+				Error:          int64(self.currMoaInfo.Error.Count()),
+				Timeout:        int64(self.currMoaInfo.Timeout.Count()),
+				MoaInvokePool:  int64(size),
+				Connections:    int64(self.network().Connections),
+				TotalGoroutine: int64(runtime.NumGoroutine()),
+			}
 			stat := self.network()
 			network := fmt.Sprintf("R:%dKB/%d\tW:%dKB/%d\tGo:%d/%d\tCONN:%d", stat.ReadBytes/1024,
 				stat.ReadCount,
 				stat.WriteBytes/1024, stat.WriteCount, stat.DisPoolSize, stat.DisPoolCap, stat.Connections)
+
 			if self.RotateSize == MAX_ROTATE_SIZE {
 				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%s",
-					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error,
-					self.currMoaInfo.Timeout, self.currMoaInfo.MoaInvokePool, network)
+
+				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d/%d\t%s",
+					self.preMoaInfo.Recv,
+					self.preMoaInfo.Proc,
+					self.preMoaInfo.Error,
+					self.preMoaInfo.Timeout,
+					size, invokeCap, network)
 				// self.RotateSize = 0
 				atomic.StoreInt32(&self.RotateSize, 0)
 			} else {
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%s",
-					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error,
-					self.currMoaInfo.Timeout, self.currMoaInfo.MoaInvokePool, network)
+				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d/%d\t%s",
+					self.preMoaInfo.Recv,
+					self.preMoaInfo.Proc,
+					self.preMoaInfo.Error,
+					self.preMoaInfo.Timeout,
+					size, invokeCap, network)
 				// self.RotateSize++
 				atomic.AddInt32(&self.RotateSize, 1)
 			}
-
-			//send data
-			self.currMoaInfo.ConnectionCount = int64(stat.Connections)
-			self.currMoaInfo.MoaInvokePool = int64(stat.DisPoolSize)
-			self.currMoaInfo.TotalGoroutine = int64(runtime.NumGoroutine())
-			self.monitor(self.serviceUri, self.hostname, *self.currMoaInfo)
-			self.reset()
+			self.monitor(self.serviceUri, self.hostname, self.preMoaInfo)
 		}
 	}()
 }
 
-func (self *MoaStat) IncreaseRecv() {
-	atomic.AddInt64(&self.currMoaInfo.Recv, 1)
+func (self *MoaStat) IncrRecv() {
+	self.currMoaInfo.Recv.Incr(1)
 }
 
-func (self *MoaStat) IncreaseProc() {
-	atomic.AddInt64(&self.currMoaInfo.Proc, 1)
+func (self *MoaStat) IncrProc() {
+	self.currMoaInfo.Proc.Incr(1)
 }
 
-func (self *MoaStat) IncreaseError() {
-	atomic.AddInt64(&self.currMoaInfo.Error, 1)
+func (self *MoaStat) IncrError() {
+	self.currMoaInfo.Error.Incr(1)
 }
 
-func (self *MoaStat) IncreaseTimeout() {
-	atomic.AddInt64(&self.currMoaInfo.Timeout, 1)
+func (self *MoaStat) IncrTimeout() {
+	self.currMoaInfo.Timeout.Incr(1)
 }
 
 func (self *MoaStat) GetMoaInfo() MoaInfo {
-	return *self.currMoaInfo
-}
-
-func (self *MoaStat) reset() {
-	self.preMoaInfo = self.currMoaInfo
-	self.currMoaInfo = &MoaInfo{}
+	return self.preMoaInfo
 }
 
 func (self *MoaStat) Destroy() {
