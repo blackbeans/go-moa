@@ -174,18 +174,18 @@ func (self *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			moaInfo := self.moaStat.GetMoaInfo()
 			rawMoaInfo, _ := json.Marshal(moaInfo)
-			w.Write(rawMoaInfo)
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "text/json")
+			w.Write(rawMoaInfo)
 			return
 
 		} else if strings.HasPrefix(r.RequestURI, "/moa/list/clients") {
 			//列出所有的客户端
 			clients := self.remoting.ListClients()
 			rawClients, _ := json.Marshal(clients)
-			w.Write(rawClients)
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "text/json")
+			w.Write(rawClients)
 			return
 		} else if strings.HasPrefix(r.RequestURI, "/moa/list/services") {
 			//列出所有的services
@@ -195,9 +195,9 @@ func (self *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			rawServices, _ := json.Marshal(serviceNames)
-			w.Write(rawServices)
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "text/json")
+			w.Write(rawServices)
 			return
 		} else if strings.HasPrefix(r.RequestURI, "/moa/list/methods") {
 			//列出所有的方法 /moa/list/methods?serviceName=user-profile
@@ -206,15 +206,19 @@ func (self *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				serviceInvoke := self.invokeHandler.ListInvokes(serviceName)
 				//返回发布的方法
 				rawMethods, _ := json.Marshal(serviceInvoke)
+
+				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "text/json")
 				w.Write(rawMethods)
 			} else {
+				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "text/json")
 				w.Write([]byte("{}"))
 			}
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "text/json")
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("{}"))
 
 	} else {
 		pprof.Index(w, r)
