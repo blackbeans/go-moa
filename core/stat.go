@@ -101,10 +101,10 @@ func (self *MoaStat) StartLog() {
 
 			size, invokeCap := self.invokePool.Monitor()
 			self.preMoaInfo = MoaInfo{
-				Recv:           int64(self.currMoaInfo.Recv.Count()),
-				Proc:           int64(self.currMoaInfo.Proc.Count()),
-				Error:          int64(self.currMoaInfo.Error.Count()),
-				Timeout:        int64(self.currMoaInfo.Timeout.Count()),
+				Recv:           int64(self.currMoaInfo.Recv.Changes()),
+				Proc:           int64(self.currMoaInfo.Proc.Changes()),
+				Error:          int64(self.currMoaInfo.Error.Changes()),
+				Timeout:        int64(self.currMoaInfo.Timeout.Changes()),
 				MoaInvokePool:  int64(size),
 				Connections:    int64(self.network().Connections),
 				TotalGoroutine: int64(runtime.NumGoroutine()),
