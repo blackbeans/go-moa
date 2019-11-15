@@ -88,12 +88,41 @@
    * 发布服务成功可以使用客户端进行测试，具体[客户端的使用请参考](http://github.com/blackbeans/go-moa-client/blob/master/README.md)
 
 #### Moa状态接口
+  
+* MOAHOME
+
+   URL : 
+    ```http
+        http://host:${moaport+1000}/debug/moa
+    ```
+    返回 :
     
+        ```text
+        /debug/moa/
+
+        Types of moaprofiles available:
+        moa
+        index	
+        MOA首页
+        
+        stat	
+        MOA系统状态指标
+        
+        list.clients	
+        MOA当前所有连接
+        
+        list.services	
+        MOA发布的服务列表
+        
+        list.methods	
+        MOA来源调用统计信息
+        ```
+        
 * 查询MOA状态信息 
     
     URL : 
     ```http
-        http://host:${moaport+1000}/moa/stat
+        http://host:${moaport+1000}/debug/moa/stat
     ```
     返回 :
     
@@ -113,7 +142,7 @@
     URL :
      
     ```http
-        http://host:${moaport+1000}/moa/list/services
+        http://host:${moaport+1000}/debug/moa/list/services
     ```   
     返回 :
     
@@ -129,7 +158,7 @@
     URL :  
     
     ```http
-        http://host:${moaport+1000}/moa/list/methods?service=/service/go-moa
+        http://host:${moaport+1000}/debug/moa/list/methods?service=/service/go-moa
     ```
     返回 :
     

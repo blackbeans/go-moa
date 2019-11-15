@@ -117,7 +117,6 @@ func init() {
 }
 
 func TestApplication(t *testing.T) {
-
 	reqPacket := MoaReqPacket{}
 	reqPacket.ServiceUri = "/service/lookup"
 	reqPacket.Params.Method = "GetService"
