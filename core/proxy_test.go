@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"testing"
@@ -9,7 +10,6 @@ import (
 	"github.com/blackbeans/turbo"
 
 	_ "fmt"
-	"github.com/blackbeans/pool"
 )
 
 type ProxyParam struct {
@@ -60,8 +60,11 @@ func MoaRequest2Raw(req *MoaReqPacket) *MoaRawReqPacket {
 	return raw
 }
 
-var stat = NewMoaStat("hostname", "serviceUri",
-	func(serviceUri, host string, moainfo MoaInfo) {}, func() turbo.NetworkStat { return turbo.NetworkStat{} })
+var stat = NewMoaStat("hostname",
+	"serviceUri",
+	turbo.NewLimitPool(context.Background(), turbo.NewTimerWheel(100, 10), 100),
+	func(serviceUri, host string, moainfo MoaInfo) {},
+	func() turbo.NetworkStat { return turbo.NetworkStat{} })
 
 func TestInvocationHandler(t *testing.T) {
 	handler := NewInvocationHandler([]Service{
@@ -91,14 +94,16 @@ func TestInvocationInvoke(t *testing.T) {
 	req.Params.Args = []interface{}{"fuck", DemoParam{"you"}}
 	req.Params.Method = "proxydemo"
 	req.Timeout = 5 * time.Second
-	resp := handler.Invoke(MoaRequest2Raw(req))
-	t.Logf("TestInvocationInvoke|Invoke|%v\n", resp)
-	if resp.ErrCode != 200 && resp.ErrCode != 0 {
-		t.Fail()
-	} else {
-		data, _ := json.Marshal(resp.Result)
-		t.Logf("TestInvocationInvoke|Invoke|Result|%s\n", string(data))
-	}
+	handler.Invoke(*MoaRequest2Raw(req), func(resp MoaRespPacket) error {
+		t.Logf("TestInvocationInvoke|Invoke|%v\n", resp)
+		if resp.ErrCode != 200 && resp.ErrCode != 0 {
+			t.Fail()
+		} else {
+			data, _ := json.Marshal(resp.Result)
+			t.Logf("TestInvocationInvoke|Invoke|Result|%s\n", string(data))
+		}
+		return nil
+	})
 
 }
 
@@ -110,14 +115,17 @@ func TestInvokeProxyDemoSlice(t *testing.T) {
 	req.Params.Args = []interface{}{"fuck", []string{"a", "b"}, ProxyParam{"you"}}
 	req.Params.Method = "ProxyDemoSlice"
 	req.Timeout = 5 * time.Second
-	resp := handler.Invoke(MoaRequest2Raw(req))
-	t.Logf("TestInvokeProxyDemoSlice|Invoke|%s\n", resp.Result)
-	if resp.ErrCode != 200 && resp.ErrCode != 0 {
-		t.Fail()
-	} else {
-		data, _ := json.Marshal(resp.Result)
-		t.Logf("TestInvokeProxyDemoSlice|Invoke|Result|%s\n", string(data))
-	}
+	handler.Invoke(*MoaRequest2Raw(req), func(resp MoaRespPacket) error {
+		t.Logf("TestInvokeProxyDemoSlice|Invoke|%s\n", resp.Result)
+		if resp.ErrCode != 200 && resp.ErrCode != 0 {
+			t.Fail()
+		} else {
+			data, _ := json.Marshal(resp.Result)
+			t.Logf("TestInvokeProxyDemoSlice|Invoke|Result|%s\n", string(data))
+		}
+		return nil
+	})
+
 }
 
 func TestInvokeJsonParams(t *testing.T) {
@@ -132,17 +140,17 @@ func TestInvokeJsonParams(t *testing.T) {
 	}
 	t.Log(req)
 	req.Timeout = 5 * time.Second
-	resp := handler.Invoke(&req)
-	t.Logf("TestInvokeProxyDemoSlice|Invoke|%s\n", resp.Result)
-	if resp.ErrCode != 200 && resp.ErrCode != 0 {
-		t.Fail()
-	} else {
-		data, _ := json.Marshal(resp.Result)
-		t.Logf("TestInvokeProxyDemoSlice|Invoke|Result|%s\n", string(data))
-	}
+	handler.Invoke(req, func(resp MoaRespPacket) error {
+		t.Logf("TestInvokeProxyDemoSlice|Invoke|%s\n", resp.Result)
+		if resp.ErrCode != 200 && resp.ErrCode != 0 {
+			t.Fail()
+		} else {
+			data, _ := json.Marshal(resp.Result)
+			t.Logf("TestInvokeProxyDemoSlice|Invoke|Result|%s\n", string(data))
+		}
+		return nil
+	})
 }
-
-var gopool = pool.NewExtLimited(2, 4, 100, 1*time.Second)
 
 func TestComplexSliceJsonParams(t *testing.T) {
 	handler := NewInvocationHandler([]Service{
@@ -160,12 +168,14 @@ func TestComplexSliceJsonParams(t *testing.T) {
 	}
 
 	req.Timeout = 5 * time.Second
-	handler.Invoke(req)
-	t.Logf("TestInvokeProxyDemoSlice|Invoke|%v\n", resp)
-	if resp.ErrCode != 200 && resp.ErrCode != 0 {
-		t.Fail()
-	} else {
-		data, _ := json.Marshal(resp.Result)
-		t.Logf("TestInvokeProxyDemoSlice|Invoke|Result|%s\n", string(data))
-	}
+	handler.Invoke(req, func(resp MoaRespPacket) error {
+		t.Logf("TestInvokeProxyDemoSlice|Invoke|%v\n", resp)
+		if resp.ErrCode != 200 && resp.ErrCode != 0 {
+			t.Fail()
+		} else {
+			data, _ := json.Marshal(resp.Result)
+			t.Logf("TestInvokeProxyDemoSlice|Invoke|Result|%s\n", string(data))
+		}
+		return nil
+	})
 }

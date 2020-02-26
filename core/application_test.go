@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net"
@@ -103,7 +104,7 @@ func init() {
 		10*time.Second,
 		50*10000)
 
-	tclient = turbo.NewTClient(conn,
+	tclient = turbo.NewTClient(context.Background(), conn,
 		func() turbo.ICodec {
 			return BinaryCodec{
 				MaxFrameLength: turbo.MAX_PACKET_BYTES}
@@ -116,7 +117,6 @@ func init() {
 }
 
 func TestApplication(t *testing.T) {
-
 	reqPacket := MoaReqPacket{}
 	reqPacket.ServiceUri = "/service/lookup"
 	reqPacket.Params.Method = "GetService"

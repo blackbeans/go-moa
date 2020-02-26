@@ -1,28 +1,51 @@
 package core
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/google/gops/agent"
+	"html/template"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
+	"sort"
 	"strings"
 
 	log "github.com/blackbeans/log4go"
-	"github.com/blackbeans/pool"
 	"github.com/blackbeans/turbo"
 	"time"
 )
 
+type MoaProfile struct {
+	Href string
+	Name string
+	Desc string
+}
+
+var profiles []MoaProfile
+
+func init() {
+	profiles = []MoaProfile{
+		MoaProfile{Name: "index", Href: "/debug/moa", Desc: "MOA首页"},
+		MoaProfile{Name: "stat", Href: "/debug/moa/stat", Desc: "MOA系统状态指标"},
+		MoaProfile{Name: "list.clients", Href: "/debug/moa/list/clients", Desc: "MOA当前所有连接"},
+		MoaProfile{Name: "list.services", Href: "/debug/moa/list/services", Desc: "MOA发布的服务列表"},
+		MoaProfile{Name: "list.methods", Href: "/debug/moa/list/methods", Desc: "MOA来源调用统计信息"}}
+}
+
 type ServiceBundle func() []Service
 
 type Application struct {
+	http.Handler
 	remoting      *turbo.TServer
 	invokeHandler *InvocationHandler
 	options       Option
 	//任务处理
-	invokePool   pool.Pool
+	invokePool   *turbo.GPool
 	configCenter *ConfigCenter
 	moaStat      *MoaStat
+	stop         context.CancelFunc
 }
 
 func NewApplication(configPath string, bundle ServiceBundle) *Application {
@@ -66,11 +89,11 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		cluster.IdleTimeout,
 		50*10000)
 
-	gopool := pool.NewExtLimited(
-		uint(cluster.MaxDispatcherSize/2),
-		uint(cluster.MaxDispatcherSize),
-		1000,
-		1*time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
+	invokePool := turbo.NewLimitPool(
+		ctx,
+		config.TW,
+		cluster.MaxDispatcherSize)
 
 	//是否启用snappy
 	snappy := false
@@ -91,11 +114,12 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	app := &Application{}
 	app.options = options
 	app.configCenter = configCenter
-	app.invokePool = gopool
+	app.invokePool = invokePool
+	app.stop = cancel
 
 	//moastat
 	moaStat := NewMoaStat(serverOp.Server.BindAddress,
-		services[0].ServiceUri, gopool,
+		services[0].ServiceUri, invokePool,
 		monitor,
 		func() turbo.NetworkStat {
 			return app.remoting.NetworkStat()
@@ -124,18 +148,46 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	//------------启动pprof
 	go func() {
 		hp, _ := net.ResolveTCPAddr("tcp4", serverOp.Server.BindAddress)
-		pprof := fmt.Sprintf("%s:%d", hp.IP, (hp.Port + 1000))
-		log.ErrorLog("moa_server", http.ListenAndServe(pprof, nil))
-
+		pprofListen := fmt.Sprintf("%s:%d", hp.IP, hp.Port+1000)
+		for _, pro := range profiles {
+			http.HandleFunc(pro.Href, app.ServeHTTP)
+		}
+		log.ErrorLog("moa_server", http.ListenAndServe(pprofListen, nil))
+		if err := agent.Listen(agent.Options{ShutdownCleanup: true}); err != nil {
+			log.ErrorLog("handler", "Gops Start  FAIL%s ...")
+		}
 	}()
 
 	//注册服务
 	configCenter.RegisteAllServices()
 	log.InfoLog("moa_server", "Application|Start|SUCC|%s|%s", name, serverOp.Server.BindAddress)
+
+	config.TW.RepeatedTimer(60*time.Second, func(t time.Time) {
+		allclients := remoting.ListClients()
+		sort.Strings(allclients)
+
+		for _, inst := range app.invokeHandler.instances {
+			removeClients := make([]string, 0, 2)
+			inst.InvokesPerClient.Range(func(key, value interface{}) bool {
+				clientip := key.(string)
+				idx := sort.SearchStrings(allclients, clientip)
+				if idx == len(allclients) || allclients[idx] != clientip {
+					removeClients = append(removeClients, clientip)
+				}
+				return true
+			})
+			//移除
+			for _, clientip := range removeClients {
+				inst.InvokesPerClient.Delete(clientip)
+			}
+		}
+	}, nil)
 	return app
 }
 
 func (self Application) DestroyApplication() {
+
+	self.stop()
 
 	//取消注册服务
 	self.configCenter.Destroy()
@@ -177,7 +229,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 				req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.Params.Method)
 		} else {
 			//全异步
-			self.invokePool.Queue(func(wu pool.WorkUnit) (i interface{}, e error) {
+			self.invokePool.Queue(func(cctx context.Context) (interface{}, error) {
 
 				self.invokeHandler.Invoke(req, func(resp MoaRespPacket) error {
 					//正常
@@ -190,7 +242,8 @@ func dis(self *Application, ctx *turbo.TContext) {
 					return ctx.Client.Write(*respPacker)
 				})
 				return nil, nil
-			})
+			}, req.Timeout)
+
 		}
 		//log.DebugLog("moa_server", "Application|packetDispatcher|SUCC|%s", *resp)
 
@@ -214,3 +267,101 @@ func dis(self *Application, ctx *turbo.TContext) {
 	}
 
 }
+
+//处理Moa的状态信息
+func (self *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	//moa的处理
+	if strings.HasPrefix(r.RequestURI, "/debug/moa") {
+
+		if len(strings.TrimPrefix(r.RequestURI, "/debug/moa")) <= 0 {
+			if err := indexTmpl.Execute(w, profiles); err != nil {
+				log.WarnLog("moa_server", "ServeHTTP|Execute|FAIL|%v|%s", err, r.RequestURI)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			return
+		}
+
+		//moa的状态信息
+		if strings.HasPrefix(r.RequestURI, "/debug/moa/stat") {
+
+			moaInfo := self.moaStat.GetMoaInfo()
+			rawMoaInfo, _ := json.Marshal(moaInfo)
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "text/json")
+			w.Write(rawMoaInfo)
+			return
+
+		} else if strings.HasPrefix(r.RequestURI, "/debug/moa/list/clients") {
+			//列出所有的客户端
+			clients := self.remoting.ListClients()
+			rawClients, _ := json.Marshal(clients)
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "text/json")
+			w.Write(rawClients)
+			return
+		} else if strings.HasPrefix(r.RequestURI, "/debug/moa/list/services") {
+			//列出所有的services
+			serviceNames := make([]string, 0, 1)
+			for serviceName := range self.invokeHandler.instances {
+				serviceNames = append(serviceNames, serviceName)
+			}
+
+			rawServices, _ := json.Marshal(serviceNames)
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "text/json")
+			w.Write(rawServices)
+			return
+		} else if strings.HasPrefix(r.RequestURI, "/debug/moa/list/methods") {
+			//列出所有的方法 /moa/list/methods?serviceName=user-profile
+			serviceName := r.FormValue("service")
+			if len(serviceName) > 0 {
+				serviceInvoke := self.invokeHandler.ListInvokes(serviceName)
+				//返回发布的方法
+				rawMethods, _ := json.Marshal(serviceInvoke)
+
+				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "text/json")
+				w.Write(rawMethods)
+			} else {
+				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "text/json")
+				w.Write([]byte("{}"))
+			}
+			return
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+	} else {
+		pprof.Index(w, r)
+	}
+}
+
+var indexTmpl = template.Must(template.New("index").Parse(`<html>
+<head>
+<title>/debug/moa/</title>
+<style>
+.profile-name{
+	display:inline-block;
+	width:6rem;
+}
+</style>
+</head>
+<body>
+/debug/moa/<br>
+<br>
+Types of moaprofiles available:
+<table>
+<thead><td>moa</td></thead>
+{{range .}}
+	<tr>
+		<td><a href={{.Href}}>{{.Name}}</a></td>
+	   <td><p>{{.Desc}}</p></td>
+	</tr>
+{{end}}
+</table>
+</body>
+</html>
+`))

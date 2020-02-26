@@ -3,8 +3,10 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/blackbeans/turbo"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/blackbeans/log4go"
@@ -24,6 +26,8 @@ type Service struct {
 	Instance   interface{}
 	//方法名称反射对应的方法
 	methods map[string]MethodMeta
+
+	InvokesPerClient *sync.Map //key: remoteip:port values:map[method]Count
 }
 
 type InvocationHandler struct {
@@ -80,6 +84,8 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 
 			}
 			s.methods[strings.ToLower(m.Name)] = mm
+			//单个客户端调用的情况
+			s.InvokesPerClient = &sync.Map{}
 		}
 		instances[s.ServiceUri] = s
 		log.InfoLog("moa_server", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
@@ -89,9 +95,37 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 
 }
 
+//服务调用情况
+func (self InvocationHandler) ListInvokes(servicename string) []InvokePerClient {
+
+	service, ok := self.instances[servicename]
+	if ok {
+		clients := make([]InvokePerClient, 0, 10)
+
+		service.InvokesPerClient.Range(func(key, value interface{}) bool {
+			s := InvokePerClient{
+				Client:      key.(string),
+				ServiceName: service.ServiceUri,
+				Methods:     make([]Method, 0, len(service.methods))}
+			//clientip调用的方法及数量
+			value.(*sync.Map).Range(func(key, value interface{}) bool {
+				methodName := key.(string)
+				count := value.(*turbo.Flow).Count()
+				s.Methods = append(s.Methods, Method{Name: methodName, Count: int64(count)})
+				return true
+			})
+			clients = append(clients, s)
+			return true
+		})
+
+		return clients
+	}
+	return []InvokePerClient{}
+}
+
 //执行结果
 func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp MoaRespPacket) error) {
-	self.moaStat.IncreaseRecv()
+	self.moaStat.IncrRecv()
 	now := time.Now()
 	resp := MoaRespPacket{}
 
@@ -104,19 +138,45 @@ func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp M
 	//需要对包的内容解析进行反射调用
 	instance, ok := self.instances[req.ServiceUri]
 	if !ok {
-		self.moaStat.IncreaseError()
+		self.moaStat.IncrError()
 		resp.ErrCode = CODE_SERVICE_NOT_FOUND
 		resp.Message = fmt.Sprintf(MSG_NO_URI_FOUND, req.ServiceUri)
 	} else {
 		m, mok := instance.methods[strings.ToLower(req.Params.Method)]
 		if !mok {
-			self.moaStat.IncreaseError()
+			self.moaStat.IncrError()
 			resp.ErrCode = CODE_METHOD_NOT_FOUND
 			resp.Message = fmt.Sprintf(MSG_METHOD_NOT_FOUND, req.Params.Method)
 		} else {
+
+			countPerMethod, ok := instance.InvokesPerClient.Load(req.Source)
+			if !ok {
+				tmp := &sync.Map{}
+				exist, ok := instance.InvokesPerClient.LoadOrStore(req.Source, tmp)
+				if !ok {
+					//么有load到则是缓存放入的
+					countPerMethod = tmp
+				} else {
+					countPerMethod = exist
+				}
+			}
+			flow := countPerMethod.(*sync.Map)
+			counter, ok := flow.Load(m.Name)
+			if !ok {
+				tmp := &turbo.Flow{}
+				exist, ok := flow.LoadOrStore(m.Name, tmp)
+				if !ok {
+					counter = tmp
+				} else {
+					counter = exist
+				}
+			}
+
+			counter.(*turbo.Flow).Incr(1)
+
 			//参数数量不对应
 			if len(req.Params.Args) != len(m.ParamTypes) {
-				self.moaStat.IncreaseError()
+				self.moaStat.IncrError()
 				resp.ErrCode = CODE_SERIALIZATION
 				resp.Message = fmt.Sprintf(MSG_PARAMS_NOT_MATCHED,
 					len(req.Params.Args), len(m.ParamTypes))
@@ -136,17 +196,17 @@ func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp M
 				}
 
 				if resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC {
-					self.moaStat.IncreaseError()
+					self.moaStat.IncrError()
 				} else {
 					work := invoke(m, params...)
 					if nil != work.err {
 						log.ErrorLog("moa_server", "InvocationHandler|Invoke|Call|FAIL|%v|Source:%s|%s|%s|%s|%s",
 							work.err, req.Source, req.ServiceUri, m.Name, params)
-						self.moaStat.IncreaseError()
+						self.moaStat.IncrError()
 						resp.ErrCode = CODE_INVOCATION_TARGET
 						resp.Message = fmt.Sprintf(MSG_INVOCATION_TARGET, work.err)
 					} else if r := work.values; nil != r {
-						self.moaStat.IncreaseProc()
+						self.moaStat.IncrProc()
 						resp.ErrCode = CODE_SERVER_SUCC
 						resp.Result = r[0].Interface()
 						//则肯定会有error
@@ -155,7 +215,7 @@ func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp M
 						}
 					} else {
 						//如果为空、说明是取消的任务
-						self.moaStat.IncreaseError()
+						self.moaStat.IncrError()
 						resp.ErrCode = CODE_INVOCATION_TARGET
 						resp.Message = fmt.Sprintf("NO Result ...")
 					}
