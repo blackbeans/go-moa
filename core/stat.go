@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"github.com/blackbeans/pool"
 
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
@@ -25,36 +24,32 @@ type MoaInfo struct {
 	Error           int64 `json:"error_Count"`
 	Timeout         int64 `json:"error_timeout_Count"`
 	GoroutineCount  int64 `json:"threads_Value"`
-	TaskQueue       int64 `json:"task_queue"` //任务队列
 	ConnectionCount int64 `json:"connection_count"`
 	Goroutine       int64 `json:"goroutine"`
 }
 
 //
 type MoaStat struct {
-	preMoaInfo  *MoaInfo
-	currMoaInfo *MoaInfo
-	invokePool  pool.Pool
-	RotateSize  int32
-	network     func() turbo.NetworkStat
-	MoaTicker   *time.Ticker
-	lock        sync.RWMutex
-	monitor     func(serviceUri, host string, moainfo MoaInfo)
-	hostname    string
-	serviceUri  string
+	lasterMoaInfo *MoaInfo
+	currMoaInfo   *MoaInfo
+	RotateSize    int32
+	network       func() turbo.NetworkStat
+	MoaTicker     *time.Ticker
+	lock          sync.RWMutex
+	monitor       func(serviceUri, host string, moainfo MoaInfo)
+	hostname      string
+	serviceUri    string
 }
 
 type MoaLog interface {
 	StartLog()
-	Destroy()
+	Destory()
 }
 
 func NewMoaStat(hostname, serviceUri string,
-	invokePool pool.Pool,
 	moniotr func(serviceUri, host string, moainfo MoaInfo), network func() turbo.NetworkStat) *MoaStat {
 	moaStat := &MoaStat{
 		currMoaInfo: &MoaInfo{},
-		invokePool:  invokePool,
 		RotateSize:  0,
 		network:     network,
 		monitor:     moniotr,
@@ -71,28 +66,32 @@ func (self *MoaStat) StartLog() {
 			if err := recover(); nil != err {
 				log.ErrorLog("stderr", "time.ticker|Invoke|FAIL|%v", err)
 				// 销毁定时器
-				self.Destroy()
+				self.Destory()
 			}
 
 		}()
-		log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tMoaQueue\tNetWork")
+		log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
 		for {
 			<-ticker.C
 			stat := self.network()
-			network := fmt.Sprintf("R:%dKB/%d\tW:%dKB/%d\tGo:%d\tNetQueue:%d\tCONN:%d", stat.ReadBytes/1024,
+			network := fmt.Sprintf("R:%dKB/%d\tW:%dKB/%d\tDisGo:%d\tDisQ:%d\tCONN:%d", stat.ReadBytes/1024,
 				stat.ReadCount,
-				stat.WriteBytes/1024, stat.WriteCount, stat.DispatcherGo, stat.GoQueueSize, stat.Connections)
+				stat.WriteBytes/1024,
+				stat.WriteCount,
+				stat.DispatcherGo,
+				stat.GoQueueSize,
+				stat.Connections)
 			if self.RotateSize == MAX_ROTATE_SIZE {
-				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tMoaQueue\tNetWork")
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%d\t%s",
+				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
+				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%s",
 					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error,
-					self.currMoaInfo.Timeout, self.currMoaInfo.GoroutineCount, self.currMoaInfo.TaskQueue, network)
+					self.currMoaInfo.Timeout, self.currMoaInfo.GoroutineCount, network)
 				// self.RotateSize = 0
 				atomic.StoreInt32(&self.RotateSize, 0)
 			} else {
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%d\t%s",
+				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d\t%s",
 					self.currMoaInfo.Recv, self.currMoaInfo.Proc, self.currMoaInfo.Error,
-					self.currMoaInfo.Timeout, self.currMoaInfo.GoroutineCount, self.currMoaInfo.TaskQueue, network)
+					self.currMoaInfo.Timeout, self.currMoaInfo.GoroutineCount, network)
 				// self.RotateSize++
 				atomic.AddInt32(&self.RotateSize, 1)
 			}
@@ -101,7 +100,6 @@ func (self *MoaStat) StartLog() {
 			self.currMoaInfo.ConnectionCount = int64(stat.Connections)
 			self.currMoaInfo.GoroutineCount = int64(stat.DispatcherGo)
 			self.currMoaInfo.Goroutine = int64(runtime.NumGoroutine())
-			self.currMoaInfo.TaskQueue = int64(self.invokePool.IncompleteTasks())
 			self.monitor(self.serviceUri, self.hostname, *self.currMoaInfo)
 			self.reset()
 		}
@@ -129,10 +127,10 @@ func (self *MoaStat) GetMoaInfo() MoaInfo {
 }
 
 func (self *MoaStat) reset() {
-	self.preMoaInfo = self.currMoaInfo
+	self.lasterMoaInfo = self.currMoaInfo
 	self.currMoaInfo = &MoaInfo{}
 }
 
-func (self *MoaStat) Destroy() {
+func (self *MoaStat) Destory() {
 	self.MoaTicker.Stop()
 }
