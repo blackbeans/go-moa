@@ -191,6 +191,28 @@ func (self Application) DestroyApplication() {
 
 	//取消注册服务
 	self.configCenter.Destroy()
+
+	// 确定没有新的调用，并且没有正在处理的调用
+	// 通过查看 moaStat 中的情况来判断
+	// 默认等待8s
+	c := make(chan string)
+	go func() {
+		for true {
+			log.InfoLog("moa_server", "current rece: %d, proc: %d, conn: %d", self.moaStat.preMoaInfo.Recv, self.moaStat.preMoaInfo.Proc, self.moaStat.preMoaInfo.Connections)
+			if self.moaStat.preMoaInfo.Recv == 0 && self.moaStat.preMoaInfo.Proc == 0 && self.moaStat.preMoaInfo.Connections == 0 {
+				c <- "Done"
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+	select {
+	case <-c:
+		log.InfoLog("moa_server", "Application|DestoryApplication|WaitProcess|Done")
+	case <-time.After(8 * time.Second):
+		log.WarnLog("moa_server", "Application|DestroyApplication|WaitProcess|Timeout")
+	}
+
 	//关闭remoting
 	self.remoting.Shutdown()
 }
