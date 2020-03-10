@@ -198,7 +198,7 @@ func (self Application) DestroyApplication() {
 	for checkTimes < 10 {
 		log.InfoLog("moa_server", "current conn: %d", self.moaStat.preMoaInfo.Connections)
 		if self.moaStat.preMoaInfo.Connections == 0 {
-			log.InfoLog("moa_server", "Application|DestoryApplication|WaitProcess|checkTimes: %d", checkTimes)
+			log.InfoLog("moa_server", "Application|DestoryApplication|WaitProcess|Times: %d|Conns:%d", checkTimes, self.moaStat.preMoaInfo.Connections)
 			log.InfoLog("moa_server", "Application|DestoryApplication|WaitProcess|Done")
 			break
 		}
