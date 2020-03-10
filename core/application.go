@@ -191,6 +191,21 @@ func (self Application) DestroyApplication() {
 
 	//取消注册服务
 	self.configCenter.Destroy()
+
+
+	// 通过查看 moaStat 中的Connections数量来确保当前没有连接
+	// 每秒检查一次，等待 10s
+	checkTimes := 0
+	for checkTimes < 10 {
+		log.InfoLog("moa_server", "Application|DestoryApplication|WaitProcess|Times:%d|Conns:%d", checkTimes, self.moaStat.preMoaInfo.Connections)
+		if self.moaStat.preMoaInfo.Connections == 0 {
+			log.InfoLog("moa_server", "Application|DestoryApplication|WaitProcess|Done")
+			break
+		}
+		time.Sleep(time.Second)
+		checkTimes += 1
+	}
+
 	//关闭remoting
 	self.remoting.Shutdown()
 }
