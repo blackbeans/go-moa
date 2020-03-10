@@ -197,9 +197,9 @@ func (self Application) DestroyApplication() {
 	// 每秒检查一次，等待 10s
 	checkTimes := 0
 	for checkTimes < 10 {
-		log.InfoLog("moa_server", "Application|DestoryApplication|WaitProcess|Times:%d|Conns:%d", checkTimes, self.moaStat.preMoaInfo.Connections)
+		log.InfoLog("moa_server", "Application|DestroyApplication|WaitProcess|Times:%d|Conns:%d", checkTimes, self.moaStat.preMoaInfo.Connections)
 		if self.moaStat.preMoaInfo.Connections == 0 {
-			log.InfoLog("moa_server", "Application|DestoryApplication|WaitProcess|Done")
+			log.InfoLog("moa_server", "Application|DestroyApplication|WaitProcess|Done")
 			break
 		}
 		time.Sleep(time.Second)
