@@ -247,10 +247,9 @@ func dis(self *Application, ctx *turbo.TContext) {
 
 				//设置当前的调用的属性线程上下文
 				//将请求的头部属性放到上下文里面
-				valCtx := context.WithValue(cctx,"props",req.Properties)
-				turbo.AttachToCurrGo(valCtx)
+				AttachGoProperies(req.Properties)
 				//消除这个
-				defer turbo.DetachFromCurrGo()
+				defer DetachGoProperties()
 				self.invokeHandler.Invoke(req, func(resp MoaRespPacket) error {
 					respPacker := turbo.NewRespPacket(ctx.Message.Header.Opaque, RESP, nil)
 					respPacker.PayLoad = resp
