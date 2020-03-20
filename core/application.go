@@ -165,7 +165,6 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	config.TW.RepeatedTimer(60*time.Second, func(t time.Time) {
 		allclients := remoting.ListClients()
 		sort.Strings(allclients)
-
 		for _, inst := range app.invokeHandler.instances {
 			removeClients := make([]string, 0, 2)
 			inst.InvokesPerClient.Range(func(key, value interface{}) bool {
@@ -246,8 +245,13 @@ func dis(self *Application, ctx *turbo.TContext) {
 			//全异步
 			self.invokePool.Queue(func(cctx context.Context) (interface{}, error) {
 
+				//设置当前的调用的属性线程上下文
+				//将请求的头部属性放到上下文里面
+				valCtx := context.WithValue(cctx,"props",req.Properties)
+				turbo.AttachToCurrGo(valCtx)
+				//消除这个
+				defer turbo.DetachFromCurrGo()
 				self.invokeHandler.Invoke(req, func(resp MoaRespPacket) error {
-					//正常
 					respPacker := turbo.NewRespPacket(ctx.Message.Header.Opaque, RESP, nil)
 					respPacker.PayLoad = resp
 					if resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC {

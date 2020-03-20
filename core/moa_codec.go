@@ -136,8 +136,9 @@ type MoaReqPacket struct {
 		Method string        `json:"m"`
 		Args   []interface{} `json:"args"`
 	} `json:"params"`
-	CreateTime int64         `json:"-"` //创建时间 ms
-	Timeout    time.Duration `json:"-"`
+	Properties map[string]string `json:"props,omitempty"`
+	CreateTime int64             `json:"-"` //创建时间 ms
+	Timeout    time.Duration     `json:"-"`
 }
 
 //moa请求协议的包
@@ -147,9 +148,10 @@ type MoaRawReqPacket struct {
 		Method string            `json:"m"`
 		Args   []json.RawMessage `json:"args"`
 	} `json:"params"`
-	CreateTime int64         `json:"-"` //创建时间 ms
-	Timeout    time.Duration `json:"-"`
-	Source     string        `json:"-"`
+	Properties map[string]string `json:"props,omitempty"`
+	CreateTime int64             `json:"-"` //创建时间 ms
+	Timeout    time.Duration     `json:"-"`
+	Source     string            `json:"-"`
 }
 
 //moa响应packet
