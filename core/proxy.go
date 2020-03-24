@@ -191,7 +191,7 @@ func (self InvocationHandler) Invoke(ctx context.Context,req MoaRawReqPacket, on
 				params := make([]reflect.Value, 0, len(m.ParamTypes))
 				//如果第一个参数是context那么久传递
 				if m.ParamTypes[0] == typeOfContext{
-					params = append(params)
+					params = append(params,reflect.ValueOf(ctx))
 				}
 				//参数数量OK逐个转换为reflect.Value类型
 				for i, f := range m.ParamTypes {
