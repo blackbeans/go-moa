@@ -177,8 +177,16 @@ func (self InvocationHandler) Invoke(ctx context.Context,req MoaRawReqPacket, on
 
 			counter.(*turbo.Flow).Incr(1)
 
+			firstIsCtx := false
+			if len(m.ParamTypes) >0{
+				//第一个参数类型判断下是否是context，如果是那么直接使用ctx
+				if typeOfContext.AssignableTo(m.ParamTypes[0]) {
+					firstIsCtx = true
+				}
+			}
+
 			//参数数量不对应
-			if len(req.Params.Args) != len(m.ParamTypes) {
+			if !firstIsCtx && len(req.Params.Args) != len(m.ParamTypes) {
 				self.moaStat.IncrError()
 				resp.ErrCode = CODE_SERIALIZATION
 				resp.Message = fmt.Sprintf(MSG_PARAMS_NOT_MATCHED,
@@ -186,11 +194,9 @@ func (self InvocationHandler) Invoke(ctx context.Context,req MoaRawReqPacket, on
 			} else {
 				params := make([]reflect.Value, 0, len(m.ParamTypes))
 
-				if len(m.ParamTypes) >0{
-					//第一个参数类型判断下是否是context，如果是那么直接使用ctx
-					if typeOfContext.AssignableTo(m.ParamTypes[0]) {
-						params = append(params, reflect.ValueOf(ctx))
-					}
+				//第一个参数类型判断下是否是context，如果是那么直接使用ctx
+				if firstIsCtx {
+					params = append(params, reflect.ValueOf(ctx))
 				}
 
 				//参数数量OK逐个转换为reflect.Value类型
