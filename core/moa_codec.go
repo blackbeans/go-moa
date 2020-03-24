@@ -212,7 +212,7 @@ func AttachMoaProperies(ctx context.Context,key,val string )context.Context {
 }
 
 //剔除属性
-func DetachMoaProperty(ctx context.Context,key string ){
+func DetachMoaProperty(ctx context.Context,key string) {
 	props:= ctx.Value(KEY_MOA_PROPERTIES)
 	if nil!=props{
 		if v,ok:= props.(map[string]string);ok{
@@ -224,12 +224,13 @@ func DetachMoaProperty(ctx context.Context,key string ){
 
 
 //获取moa的上下文属性
-func GetMoaProperty(ctx context.Context,key string ) string{
+func GetMoaProperty(ctx context.Context,key string )(string,bool){
 	props:= ctx.Value(KEY_MOA_PROPERTIES)
 	if nil!=props{
 		if v,ok:= props.(map[string]string);ok{
-			return v[key]
+			val,exist:= v[key]
+			return val,exist
 		}
 	}
-	return ""
+	return "",false
 }
