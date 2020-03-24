@@ -246,7 +246,8 @@ func dis(self *Application, ctx *turbo.TContext) {
 			self.invokePool.Queue(func(cctx context.Context) (interface{}, error) {
 
 				//设置当前的调用的属性线程上下文
-				invokeCtx := context.WithValue(cctx,"moa.props",req.Properties)
+
+				invokeCtx := context.WithValue(cctx,KEY_MOA_PROPERTIES,req.Properties)
 				self.invokeHandler.Invoke(invokeCtx,req, func(resp MoaRespPacket) error {
 					respPacker := turbo.NewRespPacket(ctx.Message.Header.Opaque, RESP, nil)
 					respPacker.PayLoad = resp

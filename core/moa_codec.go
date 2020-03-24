@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/blackbeans/log4go"
@@ -188,4 +189,47 @@ func Wrap2MoaRawResponse(data []byte) (*MoaRawRespPacket, error) {
 		return nil, err
 	}
 	return &resp, nil
+}
+
+
+const(
+	KEY_MOA_PROPERTIES =  "moa.props"
+)
+//切记切记。在使用完之后要做移除。否则会造成内存泄露
+//调用 DetachGoProperties
+func AttachMoaProperies(ctx context.Context,key,val string )context.Context {
+
+	props:= ctx.Value(KEY_MOA_PROPERTIES)
+	if nil!=props{
+		if v,ok:= props.(map[string]string);ok{
+			v[key] = val
+			return ctx
+		}
+	}
+	prop:= make(map[string]string)
+	prop[key] = val
+	return context.WithValue(ctx, KEY_MOA_PROPERTIES,props)
+}
+
+//剔除属性
+func DetachMoaProperty(ctx context.Context,key string ){
+	props:= ctx.Value(KEY_MOA_PROPERTIES)
+	if nil!=props{
+		if v,ok:= props.(map[string]string);ok{
+			delete(v,key)
+		}
+	}
+}
+
+
+
+//获取moa的上下文属性
+func GetMoaProperty(ctx context.Context,key string ) string{
+	props:= ctx.Value(KEY_MOA_PROPERTIES)
+	if nil!=props{
+		if v,ok:= props.(map[string]string);ok{
+			return v[key]
+		}
+	}
+	return ""
 }
