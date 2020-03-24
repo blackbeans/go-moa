@@ -246,11 +246,8 @@ func dis(self *Application, ctx *turbo.TContext) {
 			self.invokePool.Queue(func(cctx context.Context) (interface{}, error) {
 
 				//设置当前的调用的属性线程上下文
-				//将请求的头部属性放到上下文里面
-				AttachGoProperies(req.Properties)
-				//消除这个
-				defer DetachGoProperties()
-				self.invokeHandler.Invoke(req, func(resp MoaRespPacket) error {
+				invokeCtx := context.WithValue(cctx,"moa.props",req.Properties)
+				self.invokeHandler.Invoke(invokeCtx,req, func(resp MoaRespPacket) error {
 					respPacker := turbo.NewRespPacket(ctx.Message.Header.Opaque, RESP, nil)
 					respPacker.PayLoad = resp
 					if resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC {

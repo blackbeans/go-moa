@@ -189,26 +189,3 @@ func Wrap2MoaRawResponse(data []byte) (*MoaRawRespPacket, error) {
 	}
 	return &resp, nil
 }
-
-
-//切记切记。在使用完之后要做移除。否则会造成内存泄露
-//调用 DetachGoProperties
-func AttachGoProperies(properties map[string]string) {
-	turbo.AttachToCurrGo(properties)
-}
-
-//取消当前goroutine的数据
-func DetachGoProperties(){
-	turbo.DetachFromCurrGo()
-}
-
-//获取当前goroutine的数据
-func GetGoProperty()(map[string]string,bool){
-	val,ok:= turbo.GetCurrAttached()
-	if ok{
-		v,ok:= val.(map[string]string)
-		return v,ok
-	}else{
-		return nil,ok
-	}
-}

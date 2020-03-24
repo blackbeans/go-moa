@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/blackbeans/turbo"
@@ -123,8 +124,14 @@ func (self InvocationHandler) ListInvokes(servicename string) []InvokePerClient 
 	return []InvokePerClient{}
 }
 
+var typeOfContext reflect.Type
+
+func init()  {
+	typeOfContext  = reflect.ValueOf((context.Context)(nil)).Type()
+}
+
 //执行结果
-func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp MoaRespPacket) error) {
+func (self InvocationHandler) Invoke(ctx context.Context,req MoaRawReqPacket, onCallback func(resp MoaRespPacket) error) {
 	self.moaStat.IncrRecv()
 	now := time.Now()
 	resp := MoaRespPacket{}
@@ -182,6 +189,10 @@ func (self InvocationHandler) Invoke(req MoaRawReqPacket, onCallback func(resp M
 					len(req.Params.Args), len(m.ParamTypes))
 			} else {
 				params := make([]reflect.Value, 0, len(m.ParamTypes))
+				//如果第一个参数是context那么久传递
+				if m.ParamTypes[0] == typeOfContext{
+					params = append(params)
+				}
 				//参数数量OK逐个转换为reflect.Value类型
 				for i, f := range m.ParamTypes {
 					arg := req.Params.Args[i]
