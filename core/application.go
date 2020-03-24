@@ -191,7 +191,6 @@ func (self Application) DestroyApplication() {
 	//取消注册服务
 	self.configCenter.Destroy()
 
-
 	// 通过查看 moaStat 中的Connections数量来确保当前没有连接
 	// 每秒检查一次，等待 10s
 	checkTimes := 0
@@ -246,9 +245,8 @@ func dis(self *Application, ctx *turbo.TContext) {
 			self.invokePool.Queue(func(cctx context.Context) (interface{}, error) {
 
 				//设置当前的调用的属性线程上下文
-
-				invokeCtx := context.WithValue(cctx,KEY_MOA_PROPERTIES,req.Properties)
-				self.invokeHandler.Invoke(invokeCtx,req, func(resp MoaRespPacket) error {
+				invokeCtx := context.WithValue(cctx, KEY_MOA_PROPERTIES, req.Properties)
+				self.invokeHandler.Invoke(invokeCtx, req, func(resp MoaRespPacket) error {
 					respPacker := turbo.NewRespPacket(ctx.Message.Header.Opaque, RESP, nil)
 					respPacker.PayLoad = resp
 					if resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC {
