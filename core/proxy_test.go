@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ type DemoProxy struct {
 }
 
 func (self DemoProxy) ProxyDemo(ctx context.Context,text string, param ProxyParam) (ProxyResult, error) {
-	// fmt.Println("----------ProxyDemo")
+	fmt.Println("----------ProxyDemo")
 	return ProxyResult{param.Name, text}, nil
 }
 

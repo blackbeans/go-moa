@@ -6,6 +6,7 @@ import (
 
 func TestKetamaSelector(t *testing.T) {
 
+
 	nodes := []string{"localhost:2181", "localhost:2182", "localhost:2183"}
 	strategy := NewKetamaStrategy(nodes)
 	host := strategy.Select("100777")

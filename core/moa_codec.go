@@ -208,7 +208,7 @@ func AttachMoaProperies(ctx context.Context,key,val string )context.Context {
 	}
 	prop:= make(map[string]string)
 	prop[key] = val
-	return context.WithValue(ctx, KEY_MOA_PROPERTIES,props)
+	return context.WithValue(ctx, KEY_MOA_PROPERTIES,prop)
 }
 
 //剔除属性
