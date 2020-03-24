@@ -186,16 +186,16 @@ func (self InvocationHandler) Invoke(ctx context.Context,req MoaRawReqPacket, on
 			} else {
 				params := make([]reflect.Value, 0, len(m.ParamTypes))
 
-				//参数数量OK逐个转换为reflect.Value类型
-				for i, f := range m.ParamTypes {
-					arg := req.Params.Args[i]
-					if i <= 0{
-						//第一个参数类型判断下是否是context，如果是那么直接使用ctx
-						if  typeOfContext.AssignableTo(f){
-							params = append(params, reflect.ValueOf(ctx))
-							continue
-						}
+				if len(m.ParamTypes) >0{
+					//第一个参数类型判断下是否是context，如果是那么直接使用ctx
+					if typeOfContext.AssignableTo(m.ParamTypes[0]) {
+						params = append(params, reflect.ValueOf(ctx))
 					}
+				}
+
+				//参数数量OK逐个转换为reflect.Value类型
+				for i, arg := range req.Params.Args {
+					f:= m.ParamTypes[i]
 					inst := reflect.New(f)
 					uerr := json.Unmarshal(arg, inst.Interface())
 					if nil != uerr {
