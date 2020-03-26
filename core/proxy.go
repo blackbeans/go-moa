@@ -123,11 +123,10 @@ func (self InvocationHandler) ListInvokes(servicename string) []InvokePerClient 
 	return []InvokePerClient{}
 }
 
-var typeOfContext = reflect.TypeOf(context.TODO())
-
+var typeOfContext = reflect.TypeOf(new(context.Context)).Elem()
 
 //执行结果
-func (self InvocationHandler) Invoke(ctx context.Context,req MoaRawReqPacket, onCallback func(resp MoaRespPacket) error) {
+func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, onCallback func(resp MoaRespPacket) error) {
 	self.moaStat.IncrRecv()
 	now := time.Now()
 	resp := MoaRespPacket{}
@@ -179,9 +178,9 @@ func (self InvocationHandler) Invoke(ctx context.Context,req MoaRawReqPacket, on
 
 			paramTypes := m.ParamTypes
 			params := make([]reflect.Value, 0, len(m.ParamTypes))
-			if len(m.ParamTypes) >0{
+			if len(m.ParamTypes) > 0 {
 				//第一个参数类型判断下是否是context，如果是那么直接使用ctx
-				if typeOfContext.AssignableTo(m.ParamTypes[0]) {
+				if m.ParamTypes[0].Implements(typeOfContext) {
 					params = append(params, reflect.ValueOf(ctx))
 					paramTypes = paramTypes[1:]
 				}
@@ -196,7 +195,7 @@ func (self InvocationHandler) Invoke(ctx context.Context,req MoaRawReqPacket, on
 			} else {
 				//参数数量OK逐个转换为reflect.Value类型
 				for i, arg := range req.Params.Args {
-					f:= paramTypes[i]
+					f := paramTypes[i]
 					inst := reflect.New(f)
 					uerr := json.Unmarshal(arg, inst.Interface())
 					if nil != uerr {

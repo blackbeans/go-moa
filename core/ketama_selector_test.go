@@ -1,11 +1,22 @@
 package core
 
 import (
+	"context"
+	"reflect"
 	"testing"
 )
 
-func TestKetamaSelector(t *testing.T) {
+func TestDemo(t *testing.T) {
+	ctx := context.WithValue(context.TODO(), "key", "v")
+	ctxType := reflect.TypeOf(ctx)
+	t1 := reflect.TypeOf(new(context.Context)).Elem()
+	eq := ctxType.Implements(t1)
+	if eq {
+		t.Log("-------------------")
+	}
+}
 
+func TestKetamaSelector(t *testing.T) {
 
 	nodes := []string{"localhost:2181", "localhost:2182", "localhost:2183"}
 	strategy := NewKetamaStrategy(nodes)
