@@ -248,7 +248,8 @@ func dis(self *Application, ctx *turbo.TContext) {
 					respPacker.PayLoad = resp
 					if resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC {
 						//需要发送调用的错误给客户端
-						log.ErrorLog("moa", "Application|Invoke|FAIL|%v", ctx.Message)
+						log.ErrorLog("moa", "InvocationHandler|Invoke|FAIL|Source:%s|Timeout[%d]ms|%s|%s|%d",
+							req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.Params.Method, resp.ErrCode)
 					}
 					return ctx.Client.Write(*respPacker)
 				})
