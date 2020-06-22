@@ -134,7 +134,7 @@ func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, o
 	//请求给到pool执行延迟
 	if (now.UnixNano()/int64(time.Millisecond) - req.CreateTime) >= 500 {
 		log.WarnLog("moa", "InvocationHandler|Invoke|Call|Delay|Source:%s|Cost[%d]ms|%s|%s",
-			req.Source, (now.UnixNano()/int64(time.Millisecond) - req.CreateTime), req.ServiceUri, req.Params.Method)
+			req.Source, now.UnixNano()/int64(time.Millisecond)-req.CreateTime, req.ServiceUri, req.Params.Method)
 	}
 
 	//需要对包的内容解析进行反射调用
