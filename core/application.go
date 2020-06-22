@@ -227,13 +227,10 @@ func dis(self *Application, ctx *turbo.TContext) {
 		ctx.Client.Write(*resp)
 		return
 	}
-	//add log
-	log.DebugLog("moa", "Application|dis|%s|%d|%s", p.Header.CmdType, string(p.Data))
 	//如果是get命令
 	if p.Header.CmdType == REQ {
 
 		req := p.PayLoad.(MoaRawReqPacket)
-		log.DebugLog("moa", "Application|dis.PayLoad|%s|%s|%s", req.Source, req.Params.Method, req.Params.Args)
 		//这里面根据解析包的内容得到调用不同的service获得结果
 		req.Source = ctx.Client.RemoteAddr()
 		req.Timeout = self.options.Clusters[self.options.Server.RunMode].ProcessTimeout
@@ -244,7 +241,6 @@ func dis(self *Application, ctx *turbo.TContext) {
 		} else {
 			//全异步
 			self.invokePool.Queue(func(cctx context.Context) (interface{}, error) {
-
 				//设置当前的调用的属性线程上下文
 				invokeCtx := context.WithValue(cctx, KEY_MOA_PROPERTIES, req.Properties)
 				self.invokeHandler.Invoke(invokeCtx, req, func(resp MoaRespPacket) error {

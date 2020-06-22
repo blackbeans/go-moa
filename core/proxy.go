@@ -131,11 +131,35 @@ func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, o
 	now := time.Now()
 	resp := MoaRespPacket{}
 
-	//请求给到pool执行延迟
-	if (now.UnixNano()/int64(time.Millisecond) - req.CreateTime) >= 500 {
-		log.WarnLog("moa", "InvocationHandler|Invoke|Call|Delay|Source:%s|Cost[%d]ms|%s|%s",
-			req.Source, now.UnixNano()/int64(time.Millisecond)-req.CreateTime, req.ServiceUri, req.Params.Method)
-	}
+	//捕获运行时异常
+	defer func() {
+		if crash := recover(); nil != crash {
+			self.moaStat.IncrError()
+			resp.ErrCode = CODE_INVOCATION_TARGET
+			resp.Message = fmt.Sprintf(MSG_INVOCATION_TARGET, fmt.Sprintf("%v", crash))
+			log.ErrorLog("moa", "InvocationHandler|Invoke|Panic|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", crash,
+				req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.ServiceUri, req.Source, req.Params.Method)
+		}
+
+		//超时了
+		cost := time.Now().Sub(now)
+		if cost/time.Millisecond >= 1000 {
+			log.WarnLog("moa", "InvocationHandler|Invoke|Call|Slow|Source:%s|Cost[%d]ms|%s|%s|%v",
+				req.Source, cost/time.Millisecond, req.ServiceUri, req.Source, req.Params.Method)
+		}
+
+		if cost >= req.Timeout {
+			//丢弃结果
+			log.WarnLog("moa", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|Cost:%d|%s|%s|%v",
+				req.Source, req.Timeout/time.Millisecond, cost/time.Millisecond, req.ServiceUri, req.Source, req.Params.Method)
+		} else {
+			err := onCallback(resp)
+			if nil != err {
+				log.ErrorLog("moa", "InvocationHandler|Invoke|onCallback|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", err,
+					req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.ServiceUri, req.Source, req.Params.Method)
+			}
+		}
+	}()
 
 	//需要对包的内容解析进行反射调用
 	instance, ok := self.instances[req.ServiceUri]
@@ -232,24 +256,6 @@ func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, o
 						self.moaStat.IncrError()
 						resp.ErrCode = CODE_INVOCATION_TARGET
 						resp.Message = fmt.Sprintf("NO Result ...")
-					}
-				}
-				//超时了
-				cost := time.Now().Sub(now)
-				if cost/time.Millisecond >= 1000 {
-					log.WarnLog("moa", "InvocationHandler|Invoke|Call|Slow|Source:%s|Cost[%d]ms|%s|%s|%v",
-						req.Source, cost/time.Millisecond, req.ServiceUri, m.Name, params)
-				}
-
-				if cost >= req.Timeout {
-					//丢弃结果
-					log.WarnLog("moa", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|Cost:%d|%s|%s|%v",
-						req.Source, req.Timeout/time.Millisecond, cost/time.Millisecond, req.ServiceUri, m.Name, params)
-				} else {
-					err := onCallback(resp)
-					if nil != err {
-						log.ErrorLog("moa", "InvocationHandler|Invoke|onCallback|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", err,
-							req.Source, req.Timeout/time.Millisecond, req.ServiceUri, m.Name, params)
 					}
 				}
 			}
