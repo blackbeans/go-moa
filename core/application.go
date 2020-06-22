@@ -152,7 +152,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		for _, pro := range profiles {
 			http.HandleFunc(pro.Href, app.ServeHTTP)
 		}
-		log.ErrorLog("moa_server", http.ListenAndServe(pprofListen, nil))
+		log.ErrorLog("moa", http.ListenAndServe(pprofListen, nil))
 		if err := agent.Listen(agent.Options{ShutdownCleanup: true}); err != nil {
 			log.ErrorLog("handler", "Gops Start  FAIL%s ...")
 		}
@@ -160,7 +160,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 	//注册服务
 	configCenter.RegisteAllServices()
-	log.InfoLog("moa_server", "Application|Start|SUCC|%s|%s", name, serverOp.Server.BindAddress)
+	log.InfoLog("moa", "Application|Start|SUCC|%s|%s", name, serverOp.Server.BindAddress)
 
 	config.TW.RepeatedTimer(60*time.Second, func(t time.Time) {
 		allclients := remoting.ListClients()
@@ -195,9 +195,9 @@ func (self Application) DestroyApplication() {
 	// 每秒检查一次，等待 10s
 	checkTimes := 0
 	for checkTimes < 10 {
-		log.InfoLog("moa_server", "Application|DestroyApplication|WaitProcess|Times:%d|Conns:%d", checkTimes, self.moaStat.preMoaInfo.Connections)
+		log.InfoLog("moa", "Application|DestroyApplication|WaitProcess|Times:%d|Conns:%d", checkTimes, self.moaStat.preMoaInfo.Connections)
 		if self.moaStat.preMoaInfo.Connections == 0 {
-			log.InfoLog("moa_server", "Application|DestroyApplication|WaitProcess|Done")
+			log.InfoLog("moa", "Application|DestroyApplication|WaitProcess|Done")
 			break
 		}
 		time.Sleep(time.Second)
@@ -213,7 +213,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 
 	defer func() {
 		if err := recover(); nil != err {
-			log.ErrorLog("moa_server", "Application|packetDispatcher|FAIL|%s", err)
+			log.ErrorLog("moa", "Application|packetDispatcher|FAIL|%s", err)
 		}
 	}()
 
@@ -223,7 +223,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 		resp := turbo.NewRespPacket(p.Header.Opaque, RESP, nil)
 		resp.PayLoad = MoaRespPacket{ErrCode: CODE_THROWABLE, Message: fmt.Sprintf("%v", ctx.Err)}
 		//需要发送调用的错误给客户端
-		log.ErrorLog("moa_server", "Application|Err|Process|%v", resp)
+		log.ErrorLog("moa", "Application|Err|Process|%v", resp)
 		ctx.Client.Write(*resp)
 		return
 	}
@@ -238,7 +238,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 		req.Timeout = self.options.Clusters[self.options.Server.RunMode].ProcessTimeout
 		//是否已经超时过期了，那么久不用执行调用了
 		if req.CreateTime > 0 && (time.Now().UnixNano()-req.CreateTime*int64(time.Millisecond)) >= int64(req.Timeout) {
-			log.WarnLog("moa_server", "InvocationHandler|Invoke|Timeout|Source:%s|Timeout[%d]ms|%s|%s",
+			log.WarnLog("moa", "InvocationHandler|Invoke|Timeout|Source:%s|Timeout[%d]ms|%s|%s",
 				req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.Params.Method)
 		} else {
 			//全异步
@@ -251,7 +251,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 					respPacker.PayLoad = resp
 					if resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC {
 						//需要发送调用的错误给客户端
-						log.ErrorLog("moa_server", "Application|Invoke|FAIL|%v", ctx.Message)
+						log.ErrorLog("moa", "Application|Invoke|FAIL|%v", ctx.Message)
 					}
 					return ctx.Client.Write(*respPacker)
 				})
@@ -259,7 +259,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 			}, req.Timeout)
 
 		}
-		//log.DebugLog("moa_server", "Application|packetDispatcher|SUCC|%s", *resp)
+		//log.DebugLog("moa", "Application|packetDispatcher|SUCC|%s", *resp)
 
 	} else if p.Header.CmdType == PING {
 		//PING 协议
@@ -290,7 +290,7 @@ func (self *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if len(strings.TrimPrefix(r.RequestURI, "/debug/moa")) <= 0 {
 			if err := indexTmpl.Execute(w, profiles); err != nil {
-				log.WarnLog("moa_server", "ServeHTTP|Execute|FAIL|%v|%s", err, r.RequestURI)
+				log.WarnLog("moa", "ServeHTTP|Execute|FAIL|%v|%s", err, r.RequestURI)
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
