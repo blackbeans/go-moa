@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/gops/agent"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"html/template"
 	"net"
 	"net/http"
@@ -146,12 +147,19 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	moaStat.StartLog()
 
 	//------------启动pprof
+	// 启动 moa 系统指标状态 暴露http接口
+	// 包括 pprof、自定义moa状态信息、prometheus metrics
 	go func() {
 		hp, _ := net.ResolveTCPAddr("tcp4", serverOp.Server.BindAddress)
 		pprofListen := fmt.Sprintf("%s:%d", hp.IP, hp.Port+1000)
+
+		// moa 信息、pprof
 		for _, pro := range profiles {
 			http.HandleFunc(pro.Href, app.ServeHTTP)
 		}
+		// prometheus
+		http.Handle("/metrics", promhttp.Handler())
+
 		log.ErrorLog("moa", http.ListenAndServe(pprofListen, nil))
 		if err := agent.Listen(agent.Options{ShutdownCleanup: true}); err != nil {
 			log.ErrorLog("handler", "Gops Start  FAIL%s ...")
