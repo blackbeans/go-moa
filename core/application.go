@@ -32,7 +32,9 @@ func init() {
 		MoaProfile{Name: "stat", Href: "/debug/moa/stat", Desc: "MOA系统状态指标"},
 		MoaProfile{Name: "list.clients", Href: "/debug/moa/list/clients", Desc: "MOA当前所有连接"},
 		MoaProfile{Name: "list.services", Href: "/debug/moa/list/services", Desc: "MOA发布的服务列表"},
-		MoaProfile{Name: "list.methods", Href: "/debug/moa/list/methods", Desc: "MOA来源调用统计信息"}}
+		MoaProfile{Name: "list.methods", Href: "/debug/moa/list/methods", Desc: "MOA来源调用统计信息"},
+		MoaProfile{Name: "metrics", Href: "/metrics", Desc: "prometheus metrics"},
+	}
 }
 
 type ServiceBundle func() []Service
@@ -153,13 +155,9 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		hp, _ := net.ResolveTCPAddr("tcp4", serverOp.Server.BindAddress)
 		pprofListen := fmt.Sprintf("%s:%d", hp.IP, hp.Port+1000)
 
-		// moa 信息、pprof
 		for _, pro := range profiles {
 			http.HandleFunc(pro.Href, app.ServeHTTP)
 		}
-		// prometheus
-		http.Handle("/metrics", promhttp.Handler())
-
 		log.ErrorLog("moa", http.ListenAndServe(pprofListen, nil))
 		if err := agent.Listen(agent.Options{ShutdownCleanup: true}); err != nil {
 			log.ErrorLog("handler", "Gops Start  FAIL%s ...")
@@ -354,6 +352,8 @@ func (self *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
+	} else if strings.HasPrefix(r.RequestURI, "/metrics") {
+		promhttp.Handler().ServeHTTP(w, r)
 	} else {
 		pprof.Index(w, r)
 	}
