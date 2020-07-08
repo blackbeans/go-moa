@@ -11,6 +11,13 @@ import (
 	"github.com/naoina/toml"
 )
 
+type StrategyType string
+
+const (
+	STRATEGY_RANDOM = "random"
+	STRATEGY_KETAMA = "ketama"
+)
+
 type HostPort struct {
 	Hosts string
 }
