@@ -23,7 +23,7 @@ type ProxyResult struct {
 }
 
 type IProxyDemo interface {
-	ProxyDemo(ctx context.Context,text string, param ProxyParam) (ProxyResult, error)
+	ProxyDemo(ctx context.Context, text string, param ProxyParam) (ProxyResult, error)
 	ProxyDemoSlice(text string, arr []string, param ProxyParam) (ProxyResult, error)
 	ProxyDemoComplexSlice(text string, arg2 map[string]ProxyParam, arr []*ProxyParam) (ProxyResult, error)
 }
@@ -31,7 +31,7 @@ type IProxyDemo interface {
 type DemoProxy struct {
 }
 
-func (self DemoProxy) ProxyDemo(ctx context.Context,text string, param ProxyParam) (ProxyResult, error) {
+func (self DemoProxy) ProxyDemo(ctx context.Context, text string, param ProxyParam) (ProxyResult, error) {
 	fmt.Println("----------ProxyDemo")
 	return ProxyResult{param.Name, text}, nil
 }
@@ -81,7 +81,7 @@ func TestInvocationHandler(t *testing.T) {
 	t.Logf("TestInvocationHandler|Method Fields|%s", m.ParamTypes)
 	for _, f := range m.ParamTypes {
 		t.Logf("TestInvocationHandler|ProxyDemo|%s", f.Kind().String())
-		if f.Kind() != reflect.String && f.Kind() != reflect.Struct && f.Kind() != reflect.Interface{
+		if f.Kind() != reflect.String && f.Kind() != reflect.Struct && f.Kind() != reflect.Interface {
 			t.Fail()
 		}
 	}
@@ -95,7 +95,7 @@ func TestInvocationInvoke(t *testing.T) {
 	req.Params.Args = []interface{}{"fuck", DemoParam{"you"}}
 	req.Params.Method = "proxydemo"
 	req.Timeout = 5 * time.Second
-	handler.Invoke(context.TODO(),*MoaRequest2Raw(req), func(resp MoaRespPacket) error {
+	handler.Invoke(context.TODO(), *MoaRequest2Raw(req), func(resp MoaRespPacket) error {
 		t.Logf("TestInvocationInvoke|Invoke|%v\n", resp)
 		if resp.ErrCode != 200 && resp.ErrCode != 0 {
 			t.Fail()
@@ -116,7 +116,7 @@ func TestInvokeProxyDemoSlice(t *testing.T) {
 	req.Params.Args = []interface{}{"fuck", []string{"a", "b"}, ProxyParam{"you"}}
 	req.Params.Method = "ProxyDemoSlice"
 	req.Timeout = 5 * time.Second
-	handler.Invoke(context.TODO(),*MoaRequest2Raw(req), func(resp MoaRespPacket) error {
+	handler.Invoke(context.TODO(), *MoaRequest2Raw(req), func(resp MoaRespPacket) error {
 		t.Logf("TestInvokeProxyDemoSlice|Invoke|%s\n", resp.Result)
 		if resp.ErrCode != 200 && resp.ErrCode != 0 {
 			t.Fail()
@@ -141,7 +141,7 @@ func TestInvokeJsonParams(t *testing.T) {
 	}
 	t.Log(req)
 	req.Timeout = 5 * time.Second
-	handler.Invoke(context.TODO(),req, func(resp MoaRespPacket) error {
+	handler.Invoke(context.TODO(), req, func(resp MoaRespPacket) error {
 		t.Logf("TestInvokeProxyDemoSlice|Invoke|%s\n", resp.Result)
 		if resp.ErrCode != 200 && resp.ErrCode != 0 {
 			t.Fail()
@@ -169,7 +169,7 @@ func TestComplexSliceJsonParams(t *testing.T) {
 	}
 
 	req.Timeout = 5 * time.Second
-	handler.Invoke(context.TODO(),req, func(resp MoaRespPacket) error {
+	handler.Invoke(context.TODO(), req, func(resp MoaRespPacket) error {
 		t.Logf("TestInvokeProxyDemoSlice|Invoke|%v\n", resp)
 		if resp.ErrCode != 200 && resp.ErrCode != 0 {
 			t.Fail()
