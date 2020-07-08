@@ -122,7 +122,7 @@ func TestApplication(t *testing.T) {
 	reqPacket.Params.Method = "GetService"
 	reqPacket.Params.Args = []interface{}{"fuck", "redis", "groupId"}
 	reqPacket.Properties = map[string]string{
-		"LAGN":"zh-CN",
+		"LAGN": "zh-CN",
 	}
 
 	p := turbo.NewPacket(REQ, nil)
