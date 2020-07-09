@@ -119,19 +119,6 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	app.configCenter = configCenter
 	app.invokePool = invokePool
 	app.stop = cancel
-
-	//moastat
-	moaStat := NewMoaStat(serverOp.Server.BindAddress,
-		services[0].ServiceUri, invokePool,
-		monitor,
-		func() turbo.NetworkStat {
-			return app.remoting.NetworkStat()
-
-		})
-	app.moaStat = moaStat
-
-	app.invokeHandler = NewInvocationHandler(services, moaStat)
-
 	//启动remoting
 	remoting := turbo.NewTServerWithCodec(
 		serverOp.Server.BindAddress,
@@ -146,6 +133,18 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	if nil != err {
 		panic(err)
 	}
+
+	//moastat
+	moaStat := NewMoaStat(serverOp.Server.BindAddress,
+		services[0].ServiceUri, invokePool,
+		monitor,
+		func() turbo.NetworkStat {
+			return app.remoting.NetworkStat()
+
+		})
+	app.moaStat = moaStat
+
+	app.invokeHandler = NewInvocationHandler(services, moaStat)
 	moaStat.StartLog()
 
 	//------------启动pprof
