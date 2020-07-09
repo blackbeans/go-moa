@@ -110,9 +110,9 @@ func (self *MoaStat) StartLog() {
 				TotalGoroutine: int64(runtime.NumGoroutine()),
 			}
 
-			network := fmt.Sprintf("R:%dKB/%d\tW:%dKB/%d\tGo:%d/%d\tCONN:%d", stat.ReadBytes,
+			network := fmt.Sprintf("R:%dKB/%d\tW:%dKB/%d\tGo:%d/%d\tCONN:%d", stat.ReadBytes/1024,
 				stat.ReadCount,
-				stat.WriteBytes, stat.WriteCount, stat.DisPoolSize, stat.DisPoolCap, stat.Connections)
+				stat.WriteBytes/1024, stat.WriteCount, stat.DisPoolSize, stat.DisPoolCap, stat.Connections)
 
 			if self.RotateSize == MAX_ROTATE_SIZE {
 				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
