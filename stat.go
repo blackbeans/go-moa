@@ -4,7 +4,8 @@ import (
 	"fmt"
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
-
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -45,6 +46,16 @@ type MoaStatistic struct {
 	Timeout *turbo.Flow
 }
 
+// prometheus metrics
+type MoaMetrics struct {
+	RpcReceiveTotalCounter prometheus.Counter
+	RpcProcessTotalCounter prometheus.Counter
+	RpcErrorTotalCounter   prometheus.Counter
+	RpcTimeoutTotalCounter prometheus.Counter
+	InvokePoolMaxGauge     prometheus.Gauge
+	InvokePoolInuseGauge   prometheus.Gauge
+}
+
 //
 type MoaStat struct {
 	preMoaInfo  MoaInfo
@@ -57,6 +68,7 @@ type MoaStat struct {
 	monitor     func(serviceUri, host string, moainfo MoaInfo)
 	hostname    string
 	serviceUri  string
+	MoaMetrics  *MoaMetrics
 }
 
 type MoaLog interface {
@@ -67,12 +79,46 @@ type MoaLog interface {
 func NewMoaStat(hostname, serviceUri string,
 	invokePool *turbo.GPool,
 	moniotr func(serviceUri, host string, moainfo MoaInfo), network func() turbo.NetworkStat) *MoaStat {
+
+	receiveTotalCounter := promauto.NewCounter(prometheus.CounterOpts{
+		Name: "moa_server_rpc_receive_total",
+		Help: "The total number of received rpc call of a service's moa server",
+	})
+	processTotalCounter := promauto.NewCounter(prometheus.CounterOpts{
+		Name: "moa_server_rpc_process_total",
+		Help: "The total number of processed rpc call of a service's moa server",
+	})
+	errorTotalCounter := promauto.NewCounter(prometheus.CounterOpts{
+		Name: "moa_server_rpc_error_total",
+		Help: "The total number of error rpc call of a service's moa server",
+	})
+	timeoutTotalCounter := promauto.NewCounter(prometheus.CounterOpts{
+		Name: "moa_server_rpc_timeout_total",
+		Help: "The total number of timeout rpc call of a service's moa server",
+	})
+	poolMaxGauge := promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "moa_server_invoke_max_pool",
+		Help: "The max cap of invoke pool",
+	})
+	poolInuseGauge := promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "moa_server_invoke_inuse_pool",
+		Help: "The current inuse invoke pool",
+	})
+
 	moaStat := &MoaStat{
 		currMoaInfo: &MoaStatistic{
 			Recv:    &turbo.Flow{},
 			Proc:    &turbo.Flow{},
 			Error:   &turbo.Flow{},
 			Timeout: &turbo.Flow{},
+		},
+		MoaMetrics: &MoaMetrics{
+			RpcReceiveTotalCounter: receiveTotalCounter,
+			RpcProcessTotalCounter: processTotalCounter,
+			RpcErrorTotalCounter:   errorTotalCounter,
+			RpcTimeoutTotalCounter: timeoutTotalCounter,
+			InvokePoolMaxGauge:     poolMaxGauge,
+			InvokePoolInuseGauge:   poolInuseGauge,
 		},
 		invokePool: invokePool,
 		RotateSize: 0,
@@ -100,6 +146,10 @@ func (self *MoaStat) StartLog() {
 			<-ticker.C
 			stat := self.network()
 			size, invokeCap := self.invokePool.Monitor()
+
+			self.MoaMetrics.InvokePoolInuseGauge.Set(float64(size))
+			self.MoaMetrics.InvokePoolMaxGauge.Set(float64(invokeCap))
+
 			self.preMoaInfo = MoaInfo{
 				Recv:           int64(self.currMoaInfo.Recv.Changes()),
 				Proc:           int64(self.currMoaInfo.Proc.Changes()),
@@ -142,18 +192,22 @@ func (self *MoaStat) StartLog() {
 
 func (self *MoaStat) IncrRecv() {
 	self.currMoaInfo.Recv.Incr(1)
+	self.MoaMetrics.RpcReceiveTotalCounter.Inc()
 }
 
 func (self *MoaStat) IncrProc() {
 	self.currMoaInfo.Proc.Incr(1)
+	self.MoaMetrics.RpcProcessTotalCounter.Inc()
 }
 
 func (self *MoaStat) IncrError() {
 	self.currMoaInfo.Error.Incr(1)
+	self.MoaMetrics.RpcErrorTotalCounter.Inc()
 }
 
 func (self *MoaStat) IncrTimeout() {
 	self.currMoaInfo.Timeout.Incr(1)
+	self.MoaMetrics.RpcTimeoutTotalCounter.Inc()
 }
 
 func (self *MoaStat) GetMoaInfo() MoaInfo {
