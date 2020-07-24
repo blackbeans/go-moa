@@ -48,12 +48,16 @@ type MoaStatistic struct {
 
 // prometheus metrics
 type MoaMetrics struct {
+	// rpc请求数量
 	RpcReceiveTotalCounter prometheus.Counter
 	RpcProcessTotalCounter prometheus.Counter
 	RpcErrorTotalCounter   prometheus.Counter
 	RpcTimeoutTotalCounter prometheus.Counter
-	InvokePoolMaxGauge     prometheus.Gauge
-	InvokePoolInuseGauge   prometheus.Gauge
+	// rpc请求耗时
+	RpcInvokeDurationSummary *prometheus.SummaryVec
+	// rpc gopool用量
+	InvokePoolMaxGauge   prometheus.Gauge
+	InvokePoolInuseGauge prometheus.Gauge
 }
 
 //
@@ -80,6 +84,8 @@ func NewMoaStat(hostname, serviceUri string,
 	invokePool *turbo.GPool,
 	moniotr func(serviceUri, host string, moainfo MoaInfo), network func() turbo.NetworkStat) *MoaStat {
 
+	// 初始化指标
+	// rpc请求数量
 	receiveTotalCounter := promauto.NewCounter(prometheus.CounterOpts{
 		Name: "moa_server_rpc_receive_total",
 		Help: "The total number of received rpc call of a service's moa server",
@@ -96,6 +102,13 @@ func NewMoaStat(hostname, serviceUri string,
 		Name: "moa_server_rpc_timeout_total",
 		Help: "The total number of timeout rpc call of a service's moa server",
 	})
+	// rpc 请求耗时
+	invokeDurationSummary := promauto.NewSummaryVec(prometheus.SummaryOpts{
+		Name:       "moa_server_rpc_invoke_duration_seconds",
+		Help:       "Duration of rpc invoke cost",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	}, []string{"method"})
+	// rpc gopool 用量
 	poolMaxGauge := promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "moa_server_invoke_max_pool",
 		Help: "The max cap of invoke pool",
@@ -113,12 +126,13 @@ func NewMoaStat(hostname, serviceUri string,
 			Timeout: &turbo.Flow{},
 		},
 		MoaMetrics: &MoaMetrics{
-			RpcReceiveTotalCounter: receiveTotalCounter,
-			RpcProcessTotalCounter: processTotalCounter,
-			RpcErrorTotalCounter:   errorTotalCounter,
-			RpcTimeoutTotalCounter: timeoutTotalCounter,
-			InvokePoolMaxGauge:     poolMaxGauge,
-			InvokePoolInuseGauge:   poolInuseGauge,
+			RpcReceiveTotalCounter:   receiveTotalCounter,
+			RpcProcessTotalCounter:   processTotalCounter,
+			RpcErrorTotalCounter:     errorTotalCounter,
+			RpcTimeoutTotalCounter:   timeoutTotalCounter,
+			RpcInvokeDurationSummary: invokeDurationSummary,
+			InvokePoolMaxGauge:       poolMaxGauge,
+			InvokePoolInuseGauge:     poolInuseGauge,
 		},
 		invokePool: invokePool,
 		RotateSize: 0,
