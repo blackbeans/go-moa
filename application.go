@@ -191,15 +191,13 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 
 func (self Application) DestroyApplication() {
 
-	self.stop()
-
 	//取消注册服务
 	self.configCenter.Destroy()
 
 	// 通过查看 moaStat 中的Connections数量来确保当前没有连接
 	// 每秒检查一次，等待 10s
 	checkTimes := 0
-	for checkTimes < 10 {
+	for checkTimes < 9 {
 		log.InfoLog("moa", "Application|DestroyApplication|WaitProcess|Times:%d|Conns:%d", checkTimes, self.moaStat.preMoaInfo.Connections)
 		if self.moaStat.preMoaInfo.Connections == 0 {
 			log.InfoLog("moa", "Application|DestroyApplication|WaitProcess|Done")
@@ -208,6 +206,9 @@ func (self Application) DestroyApplication() {
 		time.Sleep(time.Second)
 		checkTimes += 1
 	}
+
+	self.stop()
+	time.Sleep(500 * time.Millisecond)
 
 	//关闭remoting
 	self.remoting.Shutdown()
