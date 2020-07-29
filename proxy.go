@@ -141,13 +141,15 @@ func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, o
 				req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.ServiceUri, req.Source, req.Params.Method)
 		}
 
-		//超时了
+		// 记录耗时
 		cost := time.Now().Sub(now)
+		self.moaStat.MoaMetrics.RpcInvokeDurationSummary.WithLabelValues(req.Params.Method).Observe(cost.Seconds())
+		// 长耗时
 		if cost/time.Millisecond >= 1000 {
 			log.WarnLog("moa", "InvocationHandler|Invoke|Call|Slow|Source:%s|Cost[%d]ms|%s|%s|%v",
 				req.Source, cost/time.Millisecond, req.ServiceUri, req.Source, req.Params.Method)
 		}
-
+		// 超时了
 		if cost >= req.Timeout {
 			//丢弃结果
 			log.WarnLog("moa", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|Cost:%d|%s|%s|%v",
