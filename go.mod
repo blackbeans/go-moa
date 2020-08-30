@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/blackbeans/go-zookeeper v0.0.0-20160315041820-e9ca0f2da2a7
 	github.com/blackbeans/log4go v0.0.0-20200623070814-a92daca2f0bb
-	github.com/blackbeans/turbo v0.0.0-20200622093107-9069cbfba728
+	github.com/blackbeans/turbo v0.0.0-20200829101315-14f70b1cf838
 	github.com/golang/snappy v0.0.1
 	github.com/google/gops v0.3.7
 	github.com/kylelemons/godebug v1.1.0 // indirect
