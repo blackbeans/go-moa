@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/blackbeans/turbo"
+	"github.com/opentracing/opentracing-go"
 	"reflect"
 	"strings"
 	"sync"
@@ -127,6 +128,36 @@ var typeOfContext = reflect.TypeOf(new(context.Context)).Elem()
 
 //执行结果
 func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, onCallback func(resp MoaRespPacket) error) {
+
+	// tracing
+	// 请求开始时的一些 set
+	var (
+		isTracing bool
+		childSpan opentracing.Span
+	)
+	parentSpanCtx := GetSpanCtx(ctx) // 从当前的请求中获取 parent span
+	if parentSpanCtx != nil {        // 有parent span时我们才开启child span，否则说明调用端没有开启 tracing
+		isTracing = true
+		childSpan = opentracing.GlobalTracer().StartSpan(req.Params.Method, opentracing.ChildOf(parentSpanCtx)) // 从parent span中生成 child span
+		defer childSpan.Finish()                                                                                // Invoke结束时停止当前span
+		ctx = WithSpanCtx(ctx, childSpan.Context())                                                             // 将 child span 写入 ctx
+
+		// 将入参写到 span log 中
+		for i, arg := range req.Params.Args {
+			v, err := json.Marshal(arg)
+			if err == nil {
+				childSpan.LogKV(fmt.Sprintf("param.%d", i), string(v))
+			}
+		}
+		// 将 moaCtx 有关信息写到 span tag 中
+		if props := ctx.Value(KEY_MOA_PROPERTIES); props != nil {
+			// 从 moa.props 中获取 key value 设置到 child span 的 tag
+			for k, v := range props.(map[string]string) {
+				childSpan.SetTag("moa."+k, v)
+			}
+		}
+	}
+
 	self.moaStat.IncrRecv()
 	now := time.Now()
 	resp := MoaRespPacket{}
@@ -155,6 +186,21 @@ func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, o
 			log.WarnLog("moa", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|Cost:%d|%s|%s|%v",
 				req.Source, req.Timeout/time.Millisecond, cost/time.Millisecond, req.ServiceUri, req.Source, req.Params.Method)
 		} else {
+			// tracing
+			// 请求响应时的一些 set
+			if isTracing {
+				childSpan.SetTag("resp.ec", resp.ErrCode)
+				childSpan.SetTag("resp.em", resp.Message)
+				rawJson, err := json.Marshal(resp.Result)
+				if err == nil {
+					childSpan.LogKV("resp.result", string(rawJson))
+				}
+				if resp.ErrCode != CODE_SERVER_SUCC {
+					childSpan.SetTag("error", true)
+				}
+			}
+
+			// 根据errCode设置error
 			err := onCallback(resp)
 			if nil != err {
 				log.ErrorLog("moa", "InvocationHandler|Invoke|onCallback|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", err,

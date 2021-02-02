@@ -3,10 +3,10 @@ package core
 import (
 	"context"
 	"encoding/json"
-
 	"github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 	"github.com/golang/snappy"
+	"github.com/opentracing/opentracing-go"
 	"time"
 )
 
@@ -197,6 +197,7 @@ const (
 
 //切记切记。在使用完之后要做移除。否则会造成内存泄露
 //调用 DetachGoProperties
+// 注：如果要修改 moa context 中信息的存储方式，需要同时修改下面的 GetSpanCtx 和 WithSpanCtx
 func AttachMoaProperty(ctx context.Context, key, val string) context.Context {
 
 	props := ctx.Value(KEY_MOA_PROPERTIES)
@@ -231,4 +232,39 @@ func GetMoaProperty(ctx context.Context, key string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// 从我们的 Context 中获取 SpanContext，如果没有则返回 nil
+// 其实是从 context 的 moa.props 中获取信息
+func GetSpanCtx(ctx context.Context) opentracing.SpanContext {
+	props := ctx.Value(KEY_MOA_PROPERTIES)
+	if props != nil {
+		if v, ok := props.(map[string]string); ok {
+			spanCtx, err := opentracing.GlobalTracer().Extract(opentracing.TextMap, opentracing.TextMapCarrier(v))
+			if err != nil {
+				return nil
+			}
+			return spanCtx
+		}
+	}
+	return nil
+}
+
+// 将 SpanContext 存到我们的 Context 中，进行传递
+// 其实是将一个键值对设置到了 context 的 moa.props 中
+func WithSpanCtx(ctx context.Context, spCtx opentracing.SpanContext) context.Context {
+	props := ctx.Value(KEY_MOA_PROPERTIES)
+	var p map[string]string
+	if props != nil {
+		if v, ok := props.(map[string]string); ok {
+			p = v
+		} else {
+			// KEY_MOA_PROPERTIES 中不是 map[string]string
+			p = make(map[string]string)
+		}
+	} else {
+		p = make(map[string]string)
+	}
+	opentracing.GlobalTracer().Inject(spCtx, opentracing.TextMap, opentracing.TextMapCarrier(p))
+	return context.WithValue(ctx, KEY_MOA_PROPERTIES, p)
 }
