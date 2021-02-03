@@ -20,15 +20,24 @@ type MethodMeta struct {
 	ParamTypes []reflect.Type
 }
 
+type ServiceMeta struct {
+	ServiceUri   string `json:"service_uri"` //serviceUr对应的服务名称
+	GroupId      string `json:"gid"`         //该服务的分组
+	HostPort     string `json:"hostport"`    //节点
+	ProtoVersion string `json:"proto_ver"`   //协议版本
+	IsPre        bool   `json:"isPre"`       //是否是预发环境
+}
+
 type Service struct {
-	ServiceUri string //serviceUr对应的服务名称
-	GroupId    string //该服务的分组
-	Interface  interface{}
-	Instance   interface{}
+	ServiceUri string      `json:"service_uri"` //serviceUr对应的服务名称
+	GroupId    string      `json:"gid"`         //该服务的分组
+	IsPre      bool        `json:"isPre"`       //是否是预发环境
+	Interface  interface{} `json:"-"`
+	Instance   interface{} `json:"-"`
 	//方法名称反射对应的方法
 	methods map[string]MethodMeta
 
-	InvokesPerClient *sync.Map //key: remoteip:port values:map[method]Count
+	InvokesPerClient *sync.Map `json:"-"` //key: remoteip:port values:map[method]Count
 }
 
 type InvocationHandler struct {

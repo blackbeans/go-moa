@@ -33,10 +33,17 @@ func NewConfigCenter(registryAddr,
 	return center
 }
 
-func (self ConfigCenter) RegisteAllServices() {
+func (self *ConfigCenter) RegisteAllServices() {
 	//注册服务
 	for _, s := range self.services {
-		succ := self.RegisteService(s.ServiceUri, self.hostport, PROTOCOL, s.GroupId)
+		succ := self.RegisteService(s.ServiceUri, self.hostport, PROTOCOL, s.GroupId,
+			ServiceMeta{
+				ServiceUri:   s.ServiceUri,
+				GroupId:      s.GroupId,
+				IsPre:        s.IsPre,
+				ProtoVersion: PROTOCOL,
+				HostPort:     self.hostport,
+			})
 		if !succ {
 			panic("ConfigCenter|RegisteAllServices|FAIL|" + s.ServiceUri)
 		}
@@ -44,19 +51,23 @@ func (self ConfigCenter) RegisteAllServices() {
 
 }
 
-func (self ConfigCenter) RegisteService(serviceUri, hostport, protoType, groupid string) bool {
-	return self.registry.RegisteService(serviceUri, hostport, protoType, groupid)
+func (self *ConfigCenter) RegisteService(serviceUri, hostport, protoType, groupid string, s ServiceMeta) bool {
+	s.ServiceUri = serviceUri
+	s.HostPort = hostport
+	s.ProtoVersion = protoType
+	s.GroupId = groupid
+	return self.registry.RegisteService(serviceUri, hostport, protoType, groupid, s)
 }
 
-func (self ConfigCenter) UnRegisteService(serviceUri, hostport, protoType, groupid string) bool {
+func (self *ConfigCenter) UnRegisteService(serviceUri, hostport, protoType, groupid string) bool {
 	return self.registry.UnRegisteService(serviceUri, hostport, protoType, groupid)
 }
 
-func (self ConfigCenter) GetService(serviceUri, protoType string, groupid string) ([]string, error) {
+func (self *ConfigCenter) GetService(serviceUri, protoType string, groupid string) ([]ServiceMeta, error) {
 	return self.registry.GetService(serviceUri, protoType, groupid)
 }
 
-func (self ConfigCenter) Destroy() {
+func (self *ConfigCenter) Destroy() {
 	//注册服务
 	for _, s := range self.services {
 		succ := self.UnRegisteService(s.ServiceUri, self.hostport, PROTOCOL, s.GroupId)

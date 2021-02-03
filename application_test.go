@@ -64,7 +64,10 @@ func (self Demo) HelloError(text string) (DemoResult, error) {
 
 var tclient *turbo.TClient
 
-func init() {
+func Testinit(t testing.TB) *turbo.TClient {
+	if nil != tclient {
+		return tclient
+	}
 	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
 	inter := (*IHello)(nil)
 	NewApplication("./conf/moa.toml", func() []Service {
@@ -113,6 +116,7 @@ func init() {
 			return nil
 		}, config)
 	tclient.Start()
+	return tclient
 
 }
 
@@ -127,7 +131,8 @@ func TestApplication(t *testing.T) {
 
 	p := turbo.NewPacket(REQ, nil)
 	p.PayLoad = reqPacket
-
+	tclient := Testinit(t)
+	defer tclient.Shutdown()
 	val, err := tclient.WriteAndGet(*p, 60*time.Second)
 	if nil != err {
 		t.Logf("WriteAndGet|FAIL|%v\n", err)
@@ -176,7 +181,7 @@ func BenchmarkApplication(t *testing.B) {
 	reqPacket.ServiceUri = "/service/lookup"
 	reqPacket.Params.Method = "GetService"
 	reqPacket.Params.Args = []interface{}{"fuck", "redis", "groupId"}
-
+	tclient := Testinit(t)
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
 		p := turbo.NewPacket(REQ, nil)
