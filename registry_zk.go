@@ -91,9 +91,9 @@ func (self *ZkRegistry) PullChildrenData(pathPrefix string, uri string, hosts ..
 		}
 		//这里只是兼容旧的节点服务节点
 		if nil != err || nil == rawNode || len(rawNode) <= 0 {
-			_, groupid := UnwrapServiceUri(uri)
+			serviceUri, groupid := UnwrapServiceUri(uri)
 			meta = ServiceMeta{
-				ServiceUri:   uri,
+				ServiceUri:   serviceUri,
 				GroupId:      groupid,
 				HostPort:     host,
 				ProtoVersion: PROTOCOL,
@@ -268,10 +268,11 @@ func BuildServiceUri(serviceUri, groupId string) string {
 	}
 }
 
-func UnwrapServiceUri(uri string) (string, string) {
-	split := strings.Split(uri, "#")
-	if len(split) > 1 {
+func UnwrapServiceUri(serviceUri string) (string, string) {
+	if strings.IndexAny(serviceUri, "#") >= 0 {
+		split := strings.SplitN(serviceUri, "#", 2)
 		return split[0], split[1]
+	} else {
+		return serviceUri, "*"
 	}
-	return uri, ""
 }
