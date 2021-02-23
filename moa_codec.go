@@ -193,6 +193,12 @@ func Wrap2MoaRawResponse(data []byte) (*MoaRawRespPacket, error) {
 
 const (
 	KEY_MOA_PROPERTIES = "moa.props"
+
+	//MOA节点选择hash值
+	KEY_MOA_PROPERTY_HASHID = "hashid"
+
+	//MOA的调用环境，可以一直带到整个调用链结束
+	KEY_MOA_PROPERTY_ENV = "moa.env"
 )
 
 //切记切记。在使用完之后要做移除。否则会造成内存泄露
