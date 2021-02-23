@@ -198,7 +198,7 @@ const (
 	KEY_MOA_PROPERTY_HASHID = "hashid"
 
 	//MOA的调用环境，可以一直带到整个调用链结束
-	KEY_MOA_PROPERTY_ENV = "moa.env"
+	KEY_MOA_PROPERTY_ENV_PRE = "moa.env.pre"
 )
 
 //切记切记。在使用完之后要做移除。否则会造成内存泄露
