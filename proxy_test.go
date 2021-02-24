@@ -61,13 +61,16 @@ func MoaRequest2Raw(req *MoaReqPacket) *MoaRawReqPacket {
 	return raw
 }
 
-var stat = NewMoaStat("hostname",
-	"serviceUri",
-	turbo.NewLimitPool(context.Background(), turbo.NewTimerWheel(100, 10), 100),
-	func(serviceUri, host string, moainfo MoaInfo) {},
-	func() turbo.NetworkStat { return turbo.NetworkStat{} })
+func testInitMoaStat(t testing.TB) *MoaStat {
+	return NewMoaStat("hostname",
+		"serviceUri",
+		turbo.NewLimitPool(context.Background(), turbo.NewTimerWheel(100, 10), 100),
+		func(serviceUri, host string, moainfo MoaInfo) {},
+		func() turbo.NetworkStat { return turbo.NetworkStat{} })
+}
 
 func TestInvocationHandler(t *testing.T) {
+	stat := testInitMoaStat(t)
 	handler := NewInvocationHandler([]Service{
 		Service{
 			ServiceUri: "demo",
@@ -88,6 +91,7 @@ func TestInvocationHandler(t *testing.T) {
 }
 
 func TestInvocationInvoke(t *testing.T) {
+	stat := testInitMoaStat(t)
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
 	req := &MoaReqPacket{}
@@ -109,6 +113,7 @@ func TestInvocationInvoke(t *testing.T) {
 }
 
 func TestInvokeProxyDemoSlice(t *testing.T) {
+	stat := testInitMoaStat(t)
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
 	req := &MoaReqPacket{}
@@ -130,6 +135,7 @@ func TestInvokeProxyDemoSlice(t *testing.T) {
 }
 
 func TestInvokeJsonParams(t *testing.T) {
+	stat := testInitMoaStat(t)
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
 
@@ -154,6 +160,7 @@ func TestInvokeJsonParams(t *testing.T) {
 }
 
 func TestComplexSliceJsonParams(t *testing.T) {
+	stat := testInitMoaStat(t)
 	handler := NewInvocationHandler([]Service{
 		Service{
 			ServiceUri: "demo",

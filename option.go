@@ -29,6 +29,7 @@ type Option struct {
 		RunMode     string
 		BindAddress string
 		Compress    string // compres=snappy
+		IsPre       bool   // 是否是预发布环境
 	}
 
 	//client配置

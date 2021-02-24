@@ -77,6 +77,8 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		if len(s.GroupId) <= 0 {
 			s.GroupId = "*"
 		}
+		//是否是预发环境
+		s.IsPre = serverOp.Server.IsPre
 		services[i] = s
 		cloneServs = append(cloneServs, s)
 	}

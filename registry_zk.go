@@ -2,10 +2,12 @@ package core
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/blackbeans/go-zookeeper/zk"
@@ -24,29 +26,29 @@ const (
 )
 
 type IRegistry interface {
-	RegisteService(serviceUri, hostport, protoType, groupId string) bool
+	RegisteService(serviceUri, hostport, protoType, groupId string, s ServiceMeta) bool
 	UnRegisteService(serviceUri, hostport, protoType, groupId string) bool
-	GetService(serviceUri, protoType, groupId string) ([]string, error)
+	GetService(serviceUri, protoType, groupId string) ([]ServiceMeta, error)
 	Destroy()
 }
 
 type ZkRegistry struct {
-	service     []string
-	zkManager   *ZKManager
-	uri2Hosts   map[string][]string
-	lock        sync.RWMutex
-	serverModel bool
+	service      []string
+	zkManager    *ZKManager
+	uri2Services map[string][]ServiceMeta
+	lock         sync.RWMutex
+	serverModel  bool
 }
 
 func NewZkRegistry(regAddr string, service []string, serverModel bool) *ZkRegistry {
 
 	zkManager := NewZKManager(regAddr)
-	uri2Hosts := make(map[string][]string, 2)
+	uri2Services := make(map[string][]ServiceMeta, 2)
 
 	zoo := &ZkRegistry{}
 	zoo.service = service
 	zoo.zkManager = zkManager
-	zoo.uri2Hosts = uri2Hosts
+	zoo.uri2Services = uri2Services
 	zoo.serverModel = serverModel
 
 	if !serverModel {
@@ -63,8 +65,10 @@ func NewZkRegistry(regAddr string, service []string, serverModel bool) *ZkRegist
 			if err != nil {
 				log.ErrorLog("config_center", "ZkRegistry|NewZkRegistry|init uri2hosts|FAIL|%s", servicePath)
 			} else {
-				sort.Strings(hosts)
-				uri2Hosts[uri] = hosts
+
+				if services, err := zoo.PullChildrenData(servicePath, uri, hosts...); nil == err {
+					uri2Services[uri] = services
+				}
 			}
 		}
 	} else {
@@ -75,7 +79,34 @@ func NewZkRegistry(regAddr string, service []string, serverModel bool) *ZkRegist
 	return zoo
 }
 
-func (self ZkRegistry) RegisteService(serviceUri, hostport, protoType, groupId string) bool {
+//获取孩子节点的数据
+func (self *ZkRegistry) PullChildrenData(pathPrefix string, uri string, hosts ...string) ([]ServiceMeta, error) {
+	sort.Strings(hosts)
+	services := make([]ServiceMeta, 0, len(hosts))
+	for _, host := range hosts {
+		var meta ServiceMeta
+		rawNode, _, _, err := self.zkManager.session.GetW(fmt.Sprintf("%s%s%s", pathPrefix, ZK_PATH_DELIMITER, host))
+		if nil == err && nil != rawNode && len(rawNode) > 0 {
+			err = json.Unmarshal(rawNode, &meta)
+		}
+		//这里只是兼容旧的节点服务节点
+		if nil != err || nil == rawNode || len(rawNode) <= 0 {
+			serviceUri, groupid := UnwrapServiceUri(uri)
+			meta = ServiceMeta{
+				ServiceUri:   serviceUri,
+				GroupId:      groupid,
+				HostPort:     host,
+				ProtoVersion: PROTOCOL,
+				IsPre:        false,
+			}
+		}
+		services = append(services, meta)
+	}
+
+	return services, nil
+}
+
+func (self *ZkRegistry) RegisteService(serviceUri, hostport, protoType, groupId string, s ServiceMeta) bool {
 	// /moa/service/v1/service/relation-service#{groupId}/localhost:13000?timeout=1000&protocol=v1
 	// hostport = "localhost:13000" //test
 	servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, protoType)
@@ -103,7 +134,8 @@ func (self ZkRegistry) RegisteService(serviceUri, hostport, protoType, groupId s
 	// 先删除，后创建吧。不然zk不通知，就坐等坑爹吧。蛋碎了一地。/(ㄒoㄒ)/~~
 
 	conn.Delete(svAddrPath, 0)
-	_, err = conn.Create(svAddrPath, nil, zk.CreateEphemeral, zk.WorldACL(zk.PermAll))
+	rawService, _ := json.Marshal(s)
+	_, err = conn.Create(svAddrPath, rawService, zk.CreateEphemeral, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		panic("NewZkRegistry|RegisteService|FAIL|" + svAddrPath + "|" + err.Error())
 	}
@@ -111,7 +143,7 @@ func (self ZkRegistry) RegisteService(serviceUri, hostport, protoType, groupId s
 	return true
 }
 
-func (self ZkRegistry) UnRegisteService(serviceUri, hostport, protoType, groupId string) bool {
+func (self *ZkRegistry) UnRegisteService(serviceUri, hostport, protoType, groupId string) bool {
 
 	servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, protoType)
 	//has groupId
@@ -135,12 +167,12 @@ func (self ZkRegistry) UnRegisteService(serviceUri, hostport, protoType, groupId
 	return true
 }
 
-func (self ZkRegistry) GetService(serviceUri, protoType, groupId string) ([]string, error) {
-	// log.WarnLog("config_center", "ZkRegistry|GetService|SUCC|%s|%s|%s", serviceUri, protoType, self.addrManager.uri2Hosts)
+func (self *ZkRegistry) GetService(serviceUri, protoType, groupId string) ([]ServiceMeta, error) {
+	// log.WarnLog("config_center", "ZkRegistry|GetService|SUCC|%s|%s|%s", serviceUri, protoType, self.addrManager.uri2Services)
 	self.lock.RLock()
 	defer self.lock.RUnlock()
 	key := BuildServiceUri(serviceUri, groupId)
-	hosts, ok := self.uri2Hosts[key]
+	hosts, ok := self.uri2Services[key]
 	if !ok {
 		if len(hosts) < 1 {
 			return nil, errors.New(fmt.Sprintf("No Hosts! /moa/service/%s%s", protoType, serviceUri))
@@ -150,14 +182,14 @@ func (self ZkRegistry) GetService(serviceUri, protoType, groupId string) ([]stri
 }
 
 //会话超时时，需要重新订阅/推送watcher
-func (self ZkRegistry) OnSessionExpired() {
+func (self *ZkRegistry) OnSessionExpired() {
 	if self.serverModel {
 		// 服务端 需要重新推送
 		conn := self.zkManager.session
-		for uri, hosts := range self.uri2Hosts {
+		for uri, serviceMeta := range self.uri2Services {
 			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
-			for _, host := range hosts {
-				svAddrPath := concat(servicePath, ZK_PATH_DELIMITER, host)
+			for _, s := range serviceMeta {
+				svAddrPath := concat(servicePath, ZK_PATH_DELIMITER, s.HostPort)
 				conn.Delete(svAddrPath, 0)
 				_, err := conn.Create(svAddrPath, nil, zk.CreateEphemeral, zk.WorldACL(zk.PermAll))
 				if err != nil {
@@ -178,10 +210,9 @@ func (self ZkRegistry) OnSessionExpired() {
 }
 
 // 用户客户端监听服务节点地址发生变化时触发
-func (self ZkRegistry) NodeChange(path string, eventType ZkEvent, addrs []string) {
+func (self *ZkRegistry) NodeChange(path string, eventType ZkEvent, addrs []string) {
 	reg, _ := regexp.Compile(`/moa/service/v1([^\s]*)`)
 	uri := reg.FindAllStringSubmatch(path, -1)[0][1]
-	// fmt.Printf("--------%s\t%s\n", path, uri)
 	needChange := true
 	//对比变化
 	func() {
@@ -189,13 +220,13 @@ func (self ZkRegistry) NodeChange(path string, eventType ZkEvent, addrs []string
 		defer self.lock.RUnlock()
 
 		sort.Strings(addrs)
-		oldAddrs, ok := self.uri2Hosts[uri]
+		oldAddrs, ok := self.uri2Services[uri]
 		if ok {
 			if len(oldAddrs) > 0 &&
 				len(oldAddrs) == len(addrs) {
 				for j, v := range addrs {
-					//如果是最后一个并且相等那么就应该不需要更新
-					if oldAddrs[j] == v && j == len(addrs)-1 {
+					//对比下是否相同
+					if oldAddrs[j].HostPort == v && j == len(addrs)-1 {
 						needChange = false
 						break
 					}
@@ -205,15 +236,18 @@ func (self ZkRegistry) NodeChange(path string, eventType ZkEvent, addrs []string
 	}()
 	//变化则更新
 	if needChange {
-		self.lock.Lock()
-		self.uri2Hosts[uri] = addrs
-		self.lock.Unlock()
+		serviceMeta, err := self.PullChildrenData(path, uri, addrs...)
+		if nil == err {
+			self.lock.Lock()
+			self.uri2Services[uri] = serviceMeta
+			self.lock.Unlock()
+		}
 	}
 	log.WarnLog("config_center", "ZkRegistry|NodeChange|%s|%s", uri, addrs)
 
 }
 
-func (self ZkRegistry) Destroy() {
+func (self *ZkRegistry) Destroy() {
 	self.zkManager.Close()
 }
 
@@ -231,5 +265,14 @@ func BuildServiceUri(serviceUri, groupId string) string {
 		return concat(serviceUri, "#", groupId)
 	} else {
 		return serviceUri
+	}
+}
+
+func UnwrapServiceUri(serviceUri string) (string, string) {
+	if strings.IndexAny(serviceUri, "#") >= 0 {
+		split := strings.SplitN(serviceUri, "#", 2)
+		return split[0], split[1]
+	} else {
+		return serviceUri, "*"
 	}
 }
