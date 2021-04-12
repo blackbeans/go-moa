@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/gops/agent"
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/uber/jaeger-client-go"
+	jaegercfg "github.com/uber/jaeger-client-go/config"
 	"html/template"
 	"net"
 	"net/http"
@@ -93,6 +96,27 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		cluster.ReadChannelSize,
 		cluster.IdleTimeout,
 		50*10000)
+
+	// tracing
+	if !opentracing.IsGlobalTracerRegistered() {
+		// 如果 global tracer 还没有注册，我们就生成一个
+		// 默认发送 span 到有可能不存在的 localhost上的 agent
+		cfg := jaegercfg.Configuration{
+			ServiceName: "moa-server",
+			Sampler: &jaegercfg.SamplerConfig{
+				Type:  jaeger.SamplerTypeConst,
+				Param: 1,
+			},
+			Reporter: &jaegercfg.ReporterConfig{
+				//LogSpans: true,
+			},
+		}
+		//jLogger := jaegerlog.StdLogger
+		tracer, _, _ := cfg.NewTracer(
+		//jaegercfg.Logger(jLogger),
+		)
+		opentracing.SetGlobalTracer(tracer)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	invokePool := turbo.NewLimitPool(
