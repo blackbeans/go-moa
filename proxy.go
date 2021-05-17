@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/blackbeans/turbo"
-	"github.com/opentracing/opentracing-go"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/blackbeans/turbo"
+	"github.com/opentracing/opentracing-go"
 
 	log "github.com/blackbeans/log4go"
 )

@@ -3,6 +3,7 @@ module github.com/blackbeans/go-moa
 go 1.13
 
 require (
+	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/blackbeans/go-zookeeper v0.0.0-20160315041820-e9ca0f2da2a7
 	github.com/blackbeans/log4go v0.0.0-20200623070814-a92daca2f0bb
 	github.com/blackbeans/turbo v0.0.0-20210302074909-ee56915aab8b

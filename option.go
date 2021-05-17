@@ -14,8 +14,9 @@ import (
 type StrategyType string
 
 const (
-	STRATEGY_RANDOM = "random"
-	STRATEGY_KETAMA = "ketama"
+	STRATEGY_RANDOM          = "random"
+	STRATEGY_KETAMA          = "ketama"
+	STRATEGY_PRIORITY_RANDOM = "priority_random"
 )
 
 type HostPort struct {
