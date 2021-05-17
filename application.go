@@ -4,11 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/gops/agent"
-	"github.com/opentracing/opentracing-go"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/uber/jaeger-client-go"
-	jaegercfg "github.com/uber/jaeger-client-go/config"
 	"html/template"
 	"net"
 	"net/http"
@@ -16,9 +11,16 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/gops/agent"
+	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/uber/jaeger-client-go"
+	jaegercfg "github.com/uber/jaeger-client-go/config"
+
+	"time"
+
 	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
-	"time"
 )
 
 type MoaProfile struct {
@@ -43,6 +45,8 @@ func init() {
 type ServiceBundle func() []Service
 
 type Application struct {
+	ctx  context.Context
+	stop context.CancelFunc
 	http.Handler
 	remoting      *turbo.TServer
 	invokeHandler *InvocationHandler
@@ -51,9 +55,9 @@ type Application struct {
 	invokePool   *turbo.GPool
 	configCenter *ConfigCenter
 	moaStat      *MoaStat
-	stop         context.CancelFunc
 }
 
+//Deprecated: 推荐使用 NewApplicationWithContext(ctx context.Context,configPath string,bundle ServiceBundle,monitor func(serviceUri, host string, moainfo MoaInfo))
 func NewApplication(configPath string, bundle ServiceBundle) *Application {
 	return NewApplicationWithAlarm(configPath, bundle,
 		func(serviceUri, hostname string, moaInfo MoaInfo) {
@@ -61,9 +65,17 @@ func NewApplication(configPath string, bundle ServiceBundle) *Application {
 		})
 }
 
-//with alarm
+//Deprecated: 推荐使用 NewApplicationWithContext(ctx context.Context,configPath string,bundle ServiceBundle,monitor func(serviceUri, host string, moainfo MoaInfo))
 func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	monitor func(serviceUri, host string, moainfo MoaInfo)) *Application {
+	return initApplication(context.TODO(), configPath, bundle, monitor)
+}
+
+func NewApplicationWithContext(ctx context.Context, configPath string, bundle ServiceBundle, monitor func(serviceUri, host string, moainfo MoaInfo)) *Application {
+	return initApplication(ctx, configPath, bundle, monitor)
+}
+
+func initApplication(ctx context.Context, configPath string, bundle ServiceBundle, monitor func(serviceUri, host string, moainfo MoaInfo)) *Application {
 	services := bundle()
 
 	options, err := LoadConfiguration(configPath)
@@ -118,10 +130,9 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 		opentracing.SetGlobalTracer(tracer)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	invokePool := turbo.NewLimitPool(
 		ctx,
-		config.TW,
 		cluster.MaxDispatcherSize)
 
 	//是否启用snappy
@@ -144,6 +155,7 @@ func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
 	app.options = options
 	app.configCenter = configCenter
 	app.invokePool = invokePool
+	app.ctx = ctx
 	app.stop = cancel
 	//启动remoting
 	remoting := turbo.NewTServerWithCodec(
@@ -272,7 +284,11 @@ func dis(self *Application, ctx *turbo.TContext) {
 				req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.Params.Method)
 		} else {
 			//全异步
-			self.invokePool.Queue(func(cctx context.Context) (interface{}, error) {
+			timeoutCtx, cancel := context.WithTimeout(self.ctx, req.Timeout)
+			self.invokePool.Queue(timeoutCtx, func(cctx context.Context) (interface{}, error) {
+				defer func() {
+					cancel()
+				}()
 				//设置当前的调用的属性线程上下文
 				invokeCtx := context.WithValue(cctx, KEY_MOA_PROPERTIES, req.Properties)
 				self.invokeHandler.Invoke(invokeCtx, req, func(resp MoaRespPacket) error {
@@ -286,7 +302,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 					return ctx.Client.Write(*respPacker)
 				})
 				return nil, nil
-			}, req.Timeout)
+			})
 
 		}
 		//log.DebugLog("moa", "Application|packetDispatcher|SUCC|%s", *resp)

@@ -64,7 +64,7 @@ func MoaRequest2Raw(req *MoaReqPacket) *MoaRawReqPacket {
 func testInitMoaStat(t testing.TB) *MoaStat {
 	return NewMoaStat("hostname",
 		"serviceUri",
-		turbo.NewLimitPool(context.Background(), turbo.NewTimerWheel(100, 10), 100),
+		turbo.NewLimitPool(context.Background(), 100),
 		func(serviceUri, host string, moainfo MoaInfo) {},
 		func() turbo.NetworkStat { return turbo.NetworkStat{} })
 }

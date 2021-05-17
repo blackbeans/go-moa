@@ -6,7 +6,7 @@ require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/blackbeans/go-zookeeper v0.0.0-20160315041820-e9ca0f2da2a7
 	github.com/blackbeans/log4go v0.0.0-20200623070814-a92daca2f0bb
-	github.com/blackbeans/turbo v0.0.0-20210302074909-ee56915aab8b
+	github.com/blackbeans/turbo v0.0.0-20210517044026-be07a6b2630c
 	github.com/golang/snappy v0.0.1
 	github.com/google/gops v0.3.7
 	github.com/kylelemons/godebug v1.1.0 // indirect
