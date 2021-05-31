@@ -151,6 +151,8 @@ func InitClientOption(option Option) Option {
 	switch strings.ToUpper(option.Client.SelectorStrategy) {
 	case "KETAMA":
 		strategy = STRATEGY_KETAMA
+	case "PRIORITY_RANDOM":
+		strategy = STRATEGY_PRIORITY_RANDOM
 	case "RANDOM":
 		fallthrough
 	default:
