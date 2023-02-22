@@ -13,7 +13,7 @@
 #cluster的服务器
 [clusters]
 	[clusters.dev]
-		registry="zk://localhost:2181"
+		registry="file://./conf/cluster.yaml"
 		processTimeout=20
 		#最大分发处理协程数
 		maxDispatcherSize=10

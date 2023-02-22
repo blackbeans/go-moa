@@ -205,7 +205,15 @@ func initApplication(ctx context.Context, configPath string, bundle ServiceBundl
 	configCenter.RegisteAllServices()
 	log.InfoLog("moa", "Application|Start|SUCC|%s|%s", name, serverOp.Server.BindAddress)
 
-	config.TW.RepeatedTimer(60*time.Second, func(t time.Time) {
+	config.TW.RepeatedTimer(60*time.Second, func(tid uint32, t time.Time) {
+		select {
+		case <-ctx.Done():
+			config.TW.CancelTimer(tid)
+			return
+		default:
+
+		}
+
 		allclients := remoting.ListClients()
 		sort.Strings(allclients)
 		for _, inst := range app.invokeHandler.instances {
@@ -250,6 +258,7 @@ func (self Application) DestroyApplication() {
 
 	//关闭remoting
 	self.remoting.Shutdown()
+	self.moaStat.Destroy()
 }
 
 //需要开发对应的分包

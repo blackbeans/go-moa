@@ -1,28 +1,15 @@
 package core
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/blackbeans/go-zookeeper/zk"
 	log "github.com/blackbeans/log4go"
-)
-
-const (
-	// /moa/service/v1/service/relation-service#{groupId}/localhost:13000?timeout=1000&protocol=v1
-	ZK_MOA_ROOT_PATH  = "/moa/service"
-	ZK_ROOT           = "/"
-	ZK_PATH_DELIMITER = "/"
-
-	PROTOCOL           = "v1"
-	REGISTRY_ZOOKEEPER = "zookeeper"
-	ALL_GROUP          = "*"
 )
 
 type IRegistry interface {
@@ -249,30 +236,4 @@ func (self *ZkRegistry) NodeChange(path string, eventType ZkEvent, addrs []strin
 
 func (self *ZkRegistry) Destroy() {
 	self.zkManager.Close()
-}
-
-// 拼接字符串
-func concat(args ...string) string {
-	var buffer bytes.Buffer
-	for _, arg := range args {
-		buffer.WriteString(arg)
-	}
-	return buffer.String()
-}
-
-func BuildServiceUri(serviceUri, groupId string) string {
-	if len(groupId) > 0 && "*" != groupId {
-		return concat(serviceUri, "#", groupId)
-	} else {
-		return serviceUri
-	}
-}
-
-func UnwrapServiceUri(serviceUri string) (string, string) {
-	if strings.IndexAny(serviceUri, "#") >= 0 {
-		split := strings.SplitN(serviceUri, "#", 2)
-		return split[0], split[1]
-	} else {
-		return serviceUri, "*"
-	}
 }

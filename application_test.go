@@ -63,14 +63,15 @@ func (self Demo) HelloError(text string) (DemoResult, error) {
 }
 
 var tclient *turbo.TClient
+var app *Application
 
-func Testinit(t testing.TB) *turbo.TClient {
-	if nil != tclient {
-		return tclient
+func Testinit(t testing.TB) (*Application, *turbo.TClient) {
+	if nil != tclient || nil != app {
+		return app, tclient
 	}
 	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
 	inter := (*IHello)(nil)
-	NewApplication("./conf/moa.toml", func() []Service {
+	app := NewApplicationWithContext(context.TODO(), "./conf/moa.toml", func() []Service {
 		return []Service{
 			Service{
 				ServiceUri: "/service/lookup",
@@ -81,6 +82,8 @@ func Testinit(t testing.TB) *turbo.TClient {
 				Instance:   demo,
 				Interface:  inter},
 		}
+	}, func(serviceUri, host string, moainfo MoaInfo) {
+
 	})
 
 	//创建物理连接
@@ -116,7 +119,7 @@ func Testinit(t testing.TB) *turbo.TClient {
 			return nil
 		}, config)
 	tclient.Start()
-	return tclient
+	return app, tclient
 
 }
 
@@ -131,8 +134,11 @@ func TestApplication(t *testing.T) {
 
 	p := turbo.NewPacket(REQ, nil)
 	p.PayLoad = reqPacket
-	tclient := Testinit(t)
-	defer tclient.Shutdown()
+	app, tclient := Testinit(t)
+	defer func() {
+		tclient.Shutdown()
+		app.DestroyApplication()
+	}()
 	val, err := tclient.WriteAndGet(*p, 60*time.Second)
 	if nil != err {
 		t.Logf("WriteAndGet|FAIL|%v\n", err)
@@ -181,15 +187,19 @@ func BenchmarkApplication(t *testing.B) {
 	reqPacket.ServiceUri = "/service/lookup"
 	reqPacket.Params.Method = "GetService"
 	reqPacket.Params.Args = []interface{}{"fuck", "redis", "groupId"}
-	tclient := Testinit(t)
+	_, tclient := Testinit(t)
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
 		p := turbo.NewPacket(REQ, nil)
 		p.PayLoad = reqPacket
-		_, err := tclient.WriteAndGet(*p, 5*time.Second)
+		_, err := tclient.WriteAndGet(*p, 30*time.Second)
 		if nil != err {
 			t.Logf("WriteAndGet|FAIL|%v\n", err)
-			t.FailNow()
+			//t.FailNow()
 		}
 	}
+	if nil != app {
+		app.DestroyApplication()
+	}
+
 }

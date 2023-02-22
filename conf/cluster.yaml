@@ -1,0 +1,9 @@
+#集群配置
+clusters:
+  - service_uri: "/service/lookup"
+    gid: ""
+    proto_ver: ""
+    isPre: false
+    hostports:
+      - "localhost:8080"
+      - "localhost:8081"

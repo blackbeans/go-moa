@@ -1,13 +1,15 @@
 package core
 
 import (
+	"bytes"
 	"strings"
 
 	log "github.com/blackbeans/log4go"
 )
 
 const (
-	SCHEMA_ZK = "zk://"
+	SCHEME_ZK   = "zk://"
+	SCHEME_FILE = "file://" //直接连接
 )
 
 type ConfigCenter struct {
@@ -19,13 +21,17 @@ type ConfigCenter struct {
 //用于创建
 func NewConfigCenter(registryAddr,
 	hostport string, services []Service) *ConfigCenter {
+
+	uris := make([]string, 0, 10)
+	for _, s := range services {
+		uris = append(uris, BuildServiceUri(s.ServiceUri, s.GroupId))
+	}
 	var reg IRegistry
-	if strings.HasPrefix(registryAddr, SCHEMA_ZK) {
-		uris := make([]string, 0, 10)
-		for _, s := range services {
-			uris = append(uris, BuildServiceUri(s.ServiceUri, s.GroupId))
-		}
-		reg = NewZkRegistry(strings.TrimPrefix(registryAddr, SCHEMA_ZK), uris, true)
+	if strings.HasPrefix(registryAddr, SCHEME_ZK) {
+		reg = NewZkRegistry(strings.TrimPrefix(registryAddr, SCHEME_ZK), uris, true)
+	} else if strings.HasPrefix(registryAddr, SCHEME_FILE) {
+		//本地文件配置
+		reg = NewFileRegistry(strings.TrimPrefix(registryAddr, SCHEME_FILE), uris, true)
 	}
 	center := &ConfigCenter{registry: reg, services: services, hostport: hostport}
 	//	 zookeeper发布一次吧
@@ -78,4 +84,41 @@ func (self *ConfigCenter) Destroy() {
 		}
 	}
 	self.registry.Destroy()
+}
+
+const (
+	// /moa/service/v1/service/relation-service#{groupId}/localhost:13000?timeout=1000&protocol=v1
+	ZK_MOA_ROOT_PATH  = "/moa/service"
+	ZK_ROOT           = "/"
+	ZK_PATH_DELIMITER = "/"
+
+	PROTOCOL           = "v1"
+	REGISTRY_ZOOKEEPER = "zookeeper"
+	ALL_GROUP          = "*"
+)
+
+// 拼接字符串
+func concat(args ...string) string {
+	var buffer bytes.Buffer
+	for _, arg := range args {
+		buffer.WriteString(arg)
+	}
+	return buffer.String()
+}
+
+func BuildServiceUri(serviceUri, groupId string) string {
+	if len(groupId) > 0 && "*" != groupId {
+		return concat(serviceUri, "#", groupId)
+	} else {
+		return serviceUri
+	}
+}
+
+func UnwrapServiceUri(serviceUri string) (string, string) {
+	if strings.IndexAny(serviceUri, "#") >= 0 {
+		split := strings.SplitN(serviceUri, "#", 2)
+		return split[0], split[1]
+	} else {
+		return serviceUri, "*"
+	}
 }

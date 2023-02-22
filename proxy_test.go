@@ -71,6 +71,7 @@ func testInitMoaStat(t testing.TB) *MoaStat {
 
 func TestInvocationHandler(t *testing.T) {
 	stat := testInitMoaStat(t)
+	defer stat.Destroy()
 	handler := NewInvocationHandler([]Service{
 		Service{
 			ServiceUri: "demo",
@@ -92,6 +93,7 @@ func TestInvocationHandler(t *testing.T) {
 
 func TestInvocationInvoke(t *testing.T) {
 	stat := testInitMoaStat(t)
+	defer stat.Destroy()
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
 	req := &MoaReqPacket{}
@@ -114,6 +116,7 @@ func TestInvocationInvoke(t *testing.T) {
 
 func TestInvokeProxyDemoSlice(t *testing.T) {
 	stat := testInitMoaStat(t)
+	defer stat.Destroy()
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
 	req := &MoaReqPacket{}
@@ -136,6 +139,7 @@ func TestInvokeProxyDemoSlice(t *testing.T) {
 
 func TestInvokeJsonParams(t *testing.T) {
 	stat := testInitMoaStat(t)
+	defer stat.Destroy()
 	handler := NewInvocationHandler([]Service{Service{ServiceUri: "demo",
 		Instance: DemoProxy{}, Interface: (*IProxyDemo)(nil)}}, stat)
 
@@ -161,6 +165,7 @@ func TestInvokeJsonParams(t *testing.T) {
 
 func TestComplexSliceJsonParams(t *testing.T) {
 	stat := testInitMoaStat(t)
+	defer stat.Destroy()
 	handler := NewInvocationHandler([]Service{
 		Service{
 			ServiceUri: "demo",

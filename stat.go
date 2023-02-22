@@ -58,6 +58,8 @@ type MoaMetrics struct {
 	// rpc gopool用量
 	InvokePoolMaxGauge   prometheus.Gauge
 	InvokePoolInuseGauge prometheus.Gauge
+
+	cllectors []prometheus.Collector
 }
 
 //
@@ -133,6 +135,15 @@ func NewMoaStat(hostname, serviceUri string,
 			RpcInvokeDurationSummary: invokeDurationSummary,
 			InvokePoolMaxGauge:       poolMaxGauge,
 			InvokePoolInuseGauge:     poolInuseGauge,
+			cllectors: []prometheus.Collector{
+				receiveTotalCounter,
+				processTotalCounter,
+				errorTotalCounter,
+				timeoutTotalCounter,
+				invokeDurationSummary,
+				poolMaxGauge,
+				poolInuseGauge,
+			},
 		},
 		invokePool: invokePool,
 		RotateSize: 0,
@@ -229,5 +240,13 @@ func (self *MoaStat) GetMoaInfo() MoaInfo {
 }
 
 func (self *MoaStat) Destroy() {
-	self.MoaTicker.Stop()
+	if nil != self.MoaTicker {
+		self.MoaTicker.Stop()
+	}
+
+	if nil != self.MoaMetrics {
+		for _, c := range self.MoaMetrics.cllectors {
+			prometheus.DefaultRegisterer.Unregister(c)
+		}
+	}
 }
