@@ -3,10 +3,10 @@ package core
 import (
 	"context"
 	"encoding/json"
-	"github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 	"github.com/golang/snappy"
 	"github.com/opentracing/opentracing-go"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -115,7 +115,7 @@ func (self BinaryCodec) MarshalPayload(p *turbo.Packet) ([]byte, error) {
 		}
 		data, err := json.Marshal(resp)
 		if nil != err {
-			log4go.ErrorLog("stderr", "BinaryCodec|MarshalPacket|Marshal|FAIL", err)
+			log.Errorf("BinaryCodec|MarshalPacket|Marshal|FAIL|%v", err)
 			resp = MoaRespPacket{ErrCode: CODE_SERIALIZATION_SERVER,
 				Message: "Invalid PayLoad Type Not MoaRespPacket"}
 			data, _ = json.Marshal(resp)

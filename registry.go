@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"strings"
 
-	log "github.com/blackbeans/log4go"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -78,9 +78,9 @@ func (self *ConfigCenter) Destroy() {
 	for _, s := range self.services {
 		succ := self.UnRegisteService(s.ServiceUri, self.hostport, PROTOCOL, s.GroupId)
 		if succ {
-			log.InfoLog("config_center", "ConfigCenter|Destroy|UnRegisteService|SUCC|%s", s.ServiceUri)
+			log.Infof("ConfigCenter|Destroy|UnRegisteService|SUCC|%s", s.ServiceUri)
 		} else {
-			log.InfoLog("config_center", "ConfigCenter|Destroy|UnRegisteService|FAIL|%s", s.ServiceUri)
+			log.Infof("ConfigCenter|Destroy|UnRegisteService|FAIL|%s", s.ServiceUri)
 		}
 	}
 	self.registry.Destroy()

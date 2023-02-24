@@ -12,7 +12,7 @@ import (
 	"github.com/blackbeans/turbo"
 	"github.com/opentracing/opentracing-go"
 
-	log "github.com/blackbeans/log4go"
+	log "github.com/sirupsen/logrus"
 )
 
 type MethodMeta struct {
@@ -99,7 +99,7 @@ func NewInvocationHandler(services []Service, moaStat *MoaStat) *InvocationHandl
 			s.InvokesPerClient = &sync.Map{}
 		}
 		instances[s.ServiceUri] = s
-		log.InfoLog("moa", "NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
+		log.Infof("NewInvocationHandler|InitService|SUCC|%s", s.ServiceUri)
 	}
 	return &InvocationHandler{instances: instances,
 		moaStat: moaStat}
@@ -178,8 +178,8 @@ func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, o
 			self.moaStat.IncrError()
 			resp.ErrCode = CODE_INVOCATION_TARGET
 			resp.Message = fmt.Sprintf(MSG_INVOCATION_TARGET, fmt.Sprintf("%v", crash))
-			log.ErrorLog("moa", "InvocationHandler|Invoke|Panic|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", crash,
-				req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.ServiceUri, req.Source, req.Params.Method)
+			log.Errorf("InvocationHandler|Invoke|Panic|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", crash,
+				req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.Source, req.Params.Method)
 		}
 
 		// 记录耗时
@@ -187,13 +187,13 @@ func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, o
 		self.moaStat.MoaMetrics.RpcInvokeDurationSummary.WithLabelValues(req.Params.Method).Observe(cost.Seconds())
 		// 长耗时
 		if cost/time.Millisecond >= 1000 {
-			log.WarnLog("moa", "InvocationHandler|Invoke|Call|Slow|Source:%s|Cost[%d]ms|%s|%s|%v",
+			log.Warnf("InvocationHandler|Invoke|Call|Slow|Source:%s|Cost[%d]ms|%s|%s|%v",
 				req.Source, cost/time.Millisecond, req.ServiceUri, req.Source, req.Params.Method)
 		}
 		// 超时了
 		if cost >= req.Timeout {
 			//丢弃结果
-			log.WarnLog("moa", "InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|Cost:%d|%s|%s|%v",
+			log.Warnf("InvocationHandler|Invoke|Call|Source:%s|Timeout[%d]ms|Cost:%d|%s|%s|%v",
 				req.Source, req.Timeout/time.Millisecond, cost/time.Millisecond, req.ServiceUri, req.Source, req.Params.Method)
 		} else {
 			// tracing
@@ -213,8 +213,8 @@ func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, o
 			// 根据errCode设置error
 			err := onCallback(resp)
 			if nil != err {
-				log.ErrorLog("moa", "InvocationHandler|Invoke|onCallback|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", err,
-					req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.ServiceUri, req.Source, req.Params.Method)
+				log.Errorf("InvocationHandler|Invoke|onCallback|%v|Source:%s|Timeout[%d]ms|%s|%s|%v", err,
+					req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.Source, req.Params.Method)
 			}
 		}
 	}()
@@ -283,7 +283,7 @@ func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, o
 					if nil != uerr {
 						resp.ErrCode = CODE_SERIALIZATION_SERVER
 						resp.Message = fmt.Sprintf(MSG_SERIALIZATION, uerr)
-						log.ErrorLog("moa", "InvocationHandler|Invoke|Unmarshal|Source:%s|%s|%s|%s|%v",
+						log.Errorf("InvocationHandler|Invoke|Unmarshal|Source:%s|%s|%s|%s|%v",
 							req.Source, req.ServiceUri, m.Name, string(arg), uerr)
 						break
 					} else {
@@ -296,7 +296,7 @@ func (self InvocationHandler) Invoke(ctx context.Context, req MoaRawReqPacket, o
 				} else {
 					work := invoke(m, params...)
 					if nil != work.err {
-						log.ErrorLog("moa", "InvocationHandler|Invoke|Call|FAIL|%v|Source:%s|%s|%s|%s|%s",
+						log.Errorf("InvocationHandler|Invoke|Call|FAIL|%v|Source:%s|%s|%s|%s",
 							work.err, req.Source, req.ServiceUri, m.Name, params)
 						self.moaStat.IncrError()
 						resp.ErrCode = CODE_INVOCATION_TARGET

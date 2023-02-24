@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/blackbeans/go-zookeeper/zk"
-	log "github.com/blackbeans/log4go"
+	log "github.com/sirupsen/logrus"
 )
 
 type IRegistry interface {
@@ -46,11 +46,11 @@ func NewZkRegistry(regAddr string, service []string, serverModel bool) *ZkRegist
 
 			flag := zkManager.RegisteWatcher(servicePath, zoo)
 
-			log.InfoLog("config_center", "ZkRegistry|NewZkRegistry|RegisteWather|%v|%s", flag, servicePath)
+			log.Infof("ZkRegistry|NewZkRegistry|RegisteWather|%v|%s", flag, servicePath)
 
 			hosts, _, _, err := zkManager.session.ChildrenW(servicePath)
 			if err != nil {
-				log.ErrorLog("config_center", "ZkRegistry|NewZkRegistry|init uri2hosts|FAIL|%s", servicePath)
+				log.Errorf("ZkRegistry|NewZkRegistry|init uri2hosts|FAIL|%s", servicePath)
 			} else {
 
 				if services, err := zoo.PullChildrenData(servicePath, uri, hosts...); nil == err {
@@ -126,7 +126,7 @@ func (self *ZkRegistry) RegisteService(serviceUri, hostport, protoType, groupId 
 	if err != nil {
 		panic("NewZkRegistry|RegisteService|FAIL|" + svAddrPath + "|" + err.Error())
 	}
-	log.InfoLog("config_center", "ZkRegistry|RegisteService|SUCC|%s|%s|%s|%s", hostport, serviceUri, protoType, groupId)
+	log.Infof("ZkRegistry|RegisteService|SUCC|%s|%s|%s|%s", hostport, serviceUri, protoType, groupId)
 	return true
 }
 
@@ -138,24 +138,24 @@ func (self *ZkRegistry) UnRegisteService(serviceUri, hostport, protoType, groupI
 	// fmt.Printf("-------%s\n", servicePath)
 	conn := self.zkManager.session
 	if flag, _, err := conn.Exists(servicePath); err != nil {
-		log.ErrorLog("config_center", "ZkRegistry|UnRegisteService|ERROR|%s|%s|%s|%s|%s",
+		log.Errorf("ZkRegistry|UnRegisteService|ERROR|%s|%s|%s|%s|%s",
 			err, serviceUri, hostport, protoType, groupId)
 		return false
 	} else {
 		if flag {
 			err := conn.Delete(servicePath, 0)
 			if err != nil {
-				log.ErrorLog("config_center", "ZkRegistry|UnRegisteService|DEL|ERROR|%s|%s", err, servicePath)
+				log.Errorf("ZkRegistry|UnRegisteService|DEL|ERROR|%s|%s", err, servicePath)
 				return false
 			}
 		}
 	}
-	log.InfoLog("config_center", "ZkRegistry|UnRegisteService|SUCC|%s", servicePath)
+	log.Infof("ZkRegistry|UnRegisteService|SUCC|%s", servicePath)
 	return true
 }
 
 func (self *ZkRegistry) GetService(serviceUri, protoType, groupId string) ([]ServiceMeta, error) {
-	// log.WarnLog("config_center", "ZkRegistry|GetService|SUCC|%s|%s|%s", serviceUri, protoType, self.addrManager.uri2Services)
+	// log.Warnf( "ZkRegistry|GetService|SUCC|%s|%s|%s", serviceUri, protoType, self.addrManager.uri2Services)
 	self.lock.RLock()
 	defer self.lock.RUnlock()
 	key := BuildServiceUri(serviceUri, groupId)
@@ -184,7 +184,7 @@ func (self *ZkRegistry) OnSessionExpired() {
 				}
 			}
 		}
-		log.InfoLog("config_center", "ZkRegistry|OnSessionExpired|%v", self.serverModel)
+		log.Infof("ZkRegistry|OnSessionExpired|%v", self.serverModel)
 	} else {
 		// 客户端需要重新订阅
 		conn := self.zkManager.session
@@ -192,7 +192,7 @@ func (self *ZkRegistry) OnSessionExpired() {
 			servicePath := concat(ZK_MOA_ROOT_PATH, ZK_PATH_DELIMITER, PROTOCOL, uri)
 			conn.ChildrenW(servicePath)
 		}
-		log.InfoLog("config_center", "ZkRegistry|OnSessionExpired|%v", self.serverModel)
+		log.Infof("ZkRegistry|OnSessionExpired|%v", self.serverModel)
 	}
 }
 
@@ -230,7 +230,7 @@ func (self *ZkRegistry) NodeChange(path string, eventType ZkEvent, addrs []strin
 			self.lock.Unlock()
 		}
 	}
-	log.WarnLog("config_center", "ZkRegistry|NodeChange|%s|%s", uri, addrs)
+	log.Warnf("ZkRegistry|NodeChange|%s|%s", uri, addrs)
 
 }
 

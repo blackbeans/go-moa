@@ -2,10 +2,10 @@ package core
 
 import (
 	"fmt"
-	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	log "github.com/sirupsen/logrus"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -160,13 +160,13 @@ func (self *MoaStat) StartLog() {
 	go func() {
 		defer func() {
 			if err := recover(); nil != err {
-				log.ErrorLog("stderr", "time.ticker|Invoke|FAIL|%v", err)
+				log.Errorf("time.ticker|Invoke|FAIL|%v", err)
 				// 销毁定时器
 				self.Destroy()
 			}
 
 		}()
-		log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
+		log.Infof("RECV PROC ERROR TIMEOUT Goroutine NetWork")
 		for {
 			<-ticker.C
 			stat := self.network()
@@ -185,14 +185,14 @@ func (self *MoaStat) StartLog() {
 				TotalGoroutine: int64(runtime.NumGoroutine()),
 			}
 
-			network := fmt.Sprintf("R:%dKB/%d\tW:%dKB/%d\tGo:%d/%d\tCONN:%d", stat.ReadBytes/1024,
+			network := fmt.Sprintf("R:%dKB/%d W:%dKB/%d Go:%d/%d CONN:%d", stat.ReadBytes/1024,
 				stat.ReadCount,
 				stat.WriteBytes/1024, stat.WriteCount, stat.DisPoolSize, stat.DisPoolCap, stat.Connections)
 
 			if self.RotateSize == MAX_ROTATE_SIZE {
-				log.InfoLog(MOA_STAT_LOG, "RECV\tPROC\tERROR\tTIMEOUT\tGoroutine\tNetWork")
+				log.Infof("REV PROC ERROR TIMEOUT Goroutine NetWork")
 
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d/%d\t%s",
+				log.Infof("%d %d %d %d %d/%d %s",
 					self.preMoaInfo.Recv,
 					self.preMoaInfo.Proc,
 					self.preMoaInfo.Error,
@@ -201,7 +201,7 @@ func (self *MoaStat) StartLog() {
 				// self.RotateSize = 0
 				atomic.StoreInt32(&self.RotateSize, 0)
 			} else {
-				log.InfoLog(MOA_STAT_LOG, "%d\t%d\t%d\t%d\t%d/%d\t%s",
+				log.Infof("%d %d %d %d %d/%d %s",
 					self.preMoaInfo.Recv,
 					self.preMoaInfo.Proc,
 					self.preMoaInfo.Error,

@@ -2,7 +2,7 @@ package core
 
 import (
 	"github.com/blackbeans/go-zookeeper/zk"
-	log "github.com/blackbeans/log4go"
+	log "github.com/sirupsen/logrus"
 	_ "net"
 	"strings"
 	"time"
@@ -41,10 +41,10 @@ func NewZKManager(zkhosts string) *ZKManager {
 
 func (self *ZKManager) Start() {
 	if len(self.zkhosts) <= 0 {
-		log.WarnLog("moa_service", "使用默认zkhosts！|localhost:2181\n")
+		log.Warnf("使用默认zkhosts！|localhost:2181")
 		self.zkhosts = "localhost:2181"
 	} else {
-		log.Info("使用zkhosts:[%s]！\n", self.zkhosts)
+		log.Infof("使用zkhosts:[%s]", self.zkhosts)
 	}
 
 	ss, eventChan, err := zk.Connect(strings.Split(self.zkhosts, ","), 5*time.Second)
@@ -70,7 +70,7 @@ func (self *ZKManager) CreateNode(conn *zk.Conn, servicePath string) error {
 			}
 			absolutePath = concat(absolutePath, path)
 			if flag, _, err := conn.Exists(absolutePath); err != nil {
-				log.ErrorLog("moa_service", "NewZKManager|CreateNode|FAIL|%s", servicePath)
+				log.Errorf("NewZKManager|CreateNode|FAIL|%s", servicePath)
 				return err
 			} else {
 				if !flag {
@@ -79,7 +79,7 @@ func (self *ZKManager) CreateNode(conn *zk.Conn, servicePath string) error {
 						conn.Close()
 						panic("NewZKManager|CreateNode|FAIL|" + servicePath)
 					} else {
-						log.InfoLog("moa_service", "NewZKManager|CREATE ROOT PATH|SUCC|%s", resp)
+						log.Infof("NewZKManager|CREATE ROOT PATH|SUCC|%s", resp)
 					}
 				}
 			}
@@ -106,7 +106,7 @@ func (self *ZKManager) listenEvent() {
 		//根据zk的文档 Watcher机制是无法保证可靠的，其次需要在每次处理完Watcher后要重新注册Watcher
 		change := <-self.eventChan
 		path := change.Path
-		// log.WarnLog("moa_service", "NewZKManager|listenEvent|path|%s|%s|%s", path, change.State, change.Type)
+		// log.Warnf( "NewZKManager|listenEvent|path|%s|%s|%s", path, change.State, change.Type)
 		//开始检查符合的watcher
 		watcher := func() IWatcher {
 			for k, w := range self.wathcers {
@@ -120,14 +120,14 @@ func (self *ZKManager) listenEvent() {
 
 		//如果没有wacher那么久忽略
 		if nil == watcher {
-			log.WarnLog("moa_service", "ZKManager|listenEvent|NO  WATCHER|path:%s|event:%v", path, change.State)
+			log.Warnf("ZKManager|listenEvent|NO  WATCHER|path:%s|event:%v", path, change.State)
 			continue
 		}
 
 		switch change.Type {
 		case zk.EventSession:
 			if change.State == zk.StateExpired || change.State == zk.StateDisconnected {
-				log.WarnLog("moa_service", "ZKManager|OnSessionExpired!|Reconnect Zk ....")
+				log.Warnf("ZKManager|OnSessionExpired!|Reconnect Zk ....")
 				//session失效必须通知所有的watcher
 				func() {
 					for _, w := range self.wathcers {
@@ -145,7 +145,7 @@ func (self *ZKManager) listenEvent() {
 		case zk.EventNodeCreated, zk.EventNodeChildrenChanged:
 			childnodes, _, _, err := self.session.ChildrenW(path)
 			if nil != err {
-				log.ErrorLog("moa_service", "ZKManager|listenEvent|CD|%s|%s|%t\n", err, path, change.Type)
+				log.Errorf("ZKManager|listenEvent|CD|%s|%s|%v", err, path, change.Type)
 			} else {
 				watcher.NodeChange(path, ZkEvent(change.Type), childnodes)
 				// log.Info("ZKManager|listenEvent|%s|%s|%s\n", path, change, childnodes)

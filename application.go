@@ -18,8 +18,8 @@ import (
 
 	"time"
 
-	log "github.com/blackbeans/log4go"
 	"github.com/blackbeans/turbo"
+	log "github.com/sirupsen/logrus"
 )
 
 type MoaProfile struct {
@@ -194,15 +194,15 @@ func initApplication(ctx context.Context, configPath string, bundle ServiceBundl
 		for _, pro := range profiles {
 			http.HandleFunc(pro.Href, app.ServeHTTP)
 		}
-		log.ErrorLog("moa", http.ListenAndServe(pprofListen, nil))
+		log.Error(http.ListenAndServe(pprofListen, nil))
 		if err := agent.Listen(agent.Options{ShutdownCleanup: true}); err != nil {
-			log.ErrorLog("handler", "Gops Start  FAIL%s ...")
+			log.Errorf("Gops Start  FAIL %s ...", err)
 		}
 	}()
 
 	//注册服务
 	configCenter.RegisteAllServices()
-	log.InfoLog("moa", "Application|Start|SUCC|%s|%s", name, serverOp.Server.BindAddress)
+	log.Infof("Application|Start|SUCC|%s|%s", name, serverOp.Server.BindAddress)
 
 	config.TW.RepeatedTimer(60*time.Second, func(tid uint32, t time.Time) {
 		select {
@@ -243,9 +243,9 @@ func (self Application) DestroyApplication() {
 	// 每秒检查一次，等待 10s
 	checkTimes := 0
 	for checkTimes < 9 {
-		log.InfoLog("moa", "Application|DestroyApplication|WaitProcess|Times:%d|Conns:%d", checkTimes, self.moaStat.preMoaInfo.Connections)
+		log.Infof("Application|DestroyApplication|WaitProcess|Times:%d|Conns:%d", checkTimes, self.moaStat.preMoaInfo.Connections)
 		if self.moaStat.preMoaInfo.Connections == 0 {
-			log.InfoLog("moa", "Application|DestroyApplication|WaitProcess|Done")
+			log.Infof("Application|DestroyApplication|WaitProcess|Done")
 			break
 		}
 		time.Sleep(time.Second)
@@ -265,7 +265,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 
 	defer func() {
 		if err := recover(); nil != err {
-			log.ErrorLog("moa", "Application|packetDispatcher|FAIL|%s", err)
+			log.Errorf("Application|packetDispatcher|FAIL|%s", err)
 		}
 	}()
 
@@ -275,7 +275,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 		resp := turbo.NewRespPacket(p.Header.Opaque, RESP, nil)
 		resp.PayLoad = MoaRespPacket{ErrCode: CODE_THROWABLE, Message: fmt.Sprintf("%v", ctx.Err)}
 		//需要发送调用的错误给客户端
-		log.ErrorLog("moa", "Application|Err|Process|%v", resp)
+		log.Errorf("Application|Err|Process|%v", resp)
 		ctx.Client.Write(*resp)
 		return
 	}
@@ -288,7 +288,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 		req.Timeout = self.options.Clusters[self.options.Server.RunMode].ProcessTimeout
 		//是否已经超时过期了，那么久不用执行调用了
 		if req.CreateTime > 0 && (time.Now().UnixNano()-req.CreateTime*int64(time.Millisecond)) >= int64(req.Timeout) {
-			log.WarnLog("moa", "InvocationHandler|Invoke|Timeout|Source:%s|Timeout[%d]ms|%s|%s",
+			log.Warnf("InvocationHandler|Invoke|Timeout|Source:%s|Timeout[%d]ms|%s|%s",
 				req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.Params.Method)
 		} else {
 			//全异步
@@ -304,7 +304,7 @@ func dis(self *Application, ctx *turbo.TContext) {
 					respPacker.PayLoad = resp
 					if resp.ErrCode != 0 && resp.ErrCode != CODE_SERVER_SUCC {
 						//需要发送调用的错误给客户端
-						log.ErrorLog("moa", "InvocationHandler|Invoke|FAIL|Source:%s|Timeout[%d]ms|%s|%s|%d",
+						log.Errorf("InvocationHandler|Invoke|FAIL|Source:%s|Timeout[%d]ms|%s|%s|%d",
 							req.Source, req.Timeout/time.Millisecond, req.ServiceUri, req.Params.Method, resp.ErrCode)
 					}
 					return ctx.Client.Write(*respPacker)
@@ -344,7 +344,7 @@ func (self *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if len(strings.TrimPrefix(r.RequestURI, "/debug/moa")) <= 0 {
 			if err := indexTmpl.Execute(w, profiles); err != nil {
-				log.WarnLog("moa", "ServeHTTP|Execute|FAIL|%v|%s", err, r.RequestURI)
+				log.Warnf("ServeHTTP|Execute|FAIL|%v|%s", err, r.RequestURI)
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
