@@ -1,10 +1,11 @@
 #### MOA Server
 
 #### 简介
-    * 基于zk做地址发现
-    * 基于turbo协议
-    * 使用json序列化协议作为传用户协议传输满足良好跨语言兼容性
-    * 基于GroupId划分同服务下的服务，满足初步的治理需要
+    * 支持zk做集群管理
+    * 支持本地配置配置集群
+    * 基于[turbo](https://github.com/blackbeans/turbo)
+    * 使用json序列化协议作为传用户协议传输
+    * 基于GroupId划分同服务下的服务,做到环境隔离
 
 #### 使用样例
    [样例参考](https://github.com/blackbeans/go-moa-demo)
@@ -24,7 +25,7 @@
 
 #### 安装：
     
-   安装ZooKeeper
+   * 安装ZooKeeper （不需要集群可以不安装）
     $Zookeeper/bin/zkServer.sh start
     
     ```
