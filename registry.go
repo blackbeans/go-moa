@@ -3,8 +3,6 @@ package core
 import (
 	"bytes"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (

@@ -11,8 +11,6 @@ import (
 
 	"github.com/blackbeans/turbo"
 	"github.com/opentracing/opentracing-go"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type MethodMeta struct {

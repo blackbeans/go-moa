@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/blackbeans/logx"
 	"github.com/google/gops/agent"
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -19,7 +20,6 @@ import (
 	"time"
 
 	"github.com/blackbeans/turbo"
-	log "github.com/sirupsen/logrus"
 )
 
 type MoaProfile struct {
@@ -43,6 +43,8 @@ func init() {
 
 type ServiceBundle func() []Service
 
+var log = logx.GetLogger("moa")
+
 type Application struct {
 	ctx  context.Context
 	stop context.CancelFunc
@@ -54,20 +56,6 @@ type Application struct {
 	invokePool   *turbo.GPool
 	configCenter *ConfigCenter
 	moaStat      *MoaStat
-}
-
-//Deprecated: 推荐使用 NewApplicationWithContext(ctx context.Context,configPath string,bundle ServiceBundle,monitor func(serviceUri, host string, moainfo MoaInfo))
-func NewApplication(configPath string, bundle ServiceBundle) *Application {
-	return NewApplicationWithAlarm(configPath, bundle,
-		func(serviceUri, hostname string, moaInfo MoaInfo) {
-			//do nothing
-		})
-}
-
-//Deprecated: 推荐使用 NewApplicationWithContext(ctx context.Context,configPath string,bundle ServiceBundle,monitor func(serviceUri, host string, moainfo MoaInfo))
-func NewApplicationWithAlarm(configPath string, bundle ServiceBundle,
-	monitor func(serviceUri, host string, moainfo MoaInfo)) *Application {
-	return initApplication(context.TODO(), configPath, bundle, monitor)
 }
 
 func NewApplicationWithContext(ctx context.Context, configPath string, bundle ServiceBundle, monitor func(serviceUri, host string, moainfo MoaInfo)) *Application {

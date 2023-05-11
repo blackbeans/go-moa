@@ -6,7 +6,6 @@ import (
 	"github.com/blackbeans/turbo"
 	"github.com/golang/snappy"
 	"github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
 	"time"
 )
 

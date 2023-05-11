@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/blackbeans/go-zookeeper/zk"
-	log "github.com/sirupsen/logrus"
 )
 
 type IRegistry interface {

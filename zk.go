@@ -2,7 +2,6 @@ package core
 
 import (
 	"github.com/blackbeans/go-zookeeper/zk"
-	log "github.com/sirupsen/logrus"
 	_ "net"
 	"strings"
 	"time"

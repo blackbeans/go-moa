@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"errors"
-	"log"
+	"github.com/blackbeans/logx"
 	"net"
 	"testing"
 	"time"
@@ -71,6 +71,7 @@ func Testinit(t testing.TB) (*Application, *turbo.TClient) {
 	}
 	demo := Demo{make(map[string][]string, 2), "/service/lookup"}
 	inter := (*IHello)(nil)
+	logx.InitLogger("./logs", "./conf/log.xml")
 	app := NewApplicationWithContext(context.TODO(), "./conf/moa.toml", func() []Service {
 		return []Service{
 			Service{
