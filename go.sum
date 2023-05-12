@@ -51,8 +51,10 @@ github.com/blackbeans/go-zookeeper v0.0.0-20160315041820-e9ca0f2da2a7 h1:YxOhaef
 github.com/blackbeans/go-zookeeper v0.0.0-20160315041820-e9ca0f2da2a7/go.mod h1:MxVuTEjQSE8nnLyPVzYZKQhMTaZoVBxw2xnmd/awuGM=
 github.com/blackbeans/logx v0.0.0-20230511130048-df4c16f12206 h1:WNrnCmgd/q3/4RfAPCs3JpiuigjtKcI1QObDXh0n4XM=
 github.com/blackbeans/logx v0.0.0-20230511130048-df4c16f12206/go.mod h1:etQRdBUB7nfCUB8XWuZeOTWvDl8Q838qAi/LBARGQwg=
-github.com/blackbeans/turbo v0.0.0-20230224051732-5304f943155c h1:Zhc3n2PceH6OV/kQAfZlYnebvMsqX6v5szd1rixl1rY=
-github.com/blackbeans/turbo v0.0.0-20230224051732-5304f943155c/go.mod h1:y8s1oanq5GvRLDLBO50EfCl809BaJYA++NCwy1EPNoY=
+github.com/blackbeans/logx v0.0.0-20230512024628-435379234c0f h1:VJmelIcAXmEb0Jv4N7IWayTLIA2xV05V1bCtBgceg7E=
+github.com/blackbeans/logx v0.0.0-20230512024628-435379234c0f/go.mod h1:etQRdBUB7nfCUB8XWuZeOTWvDl8Q838qAi/LBARGQwg=
+github.com/blackbeans/turbo v0.0.0-20230512023952-5bc04b90816f h1:ietDxpS3J7StXI0PMGpz5FV5ZwH8egmljkLiMGmBK4U=
+github.com/blackbeans/turbo v0.0.0-20230512023952-5bc04b90816f/go.mod h1:6TJuwH7HZj6V58B1bswETv0cRudVpDqOUoieVO5UvDQ=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/cespare/xxhash/v2 v2.1.2/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=

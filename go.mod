@@ -5,8 +5,8 @@ go 1.16
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/blackbeans/go-zookeeper v0.0.0-20160315041820-e9ca0f2da2a7
-	github.com/blackbeans/logx v0.0.0-20230511130048-df4c16f12206
-	github.com/blackbeans/turbo v0.0.0-20230224051732-5304f943155c
+	github.com/blackbeans/logx v0.0.0-20230512024628-435379234c0f
+	github.com/blackbeans/turbo v0.0.0-20230512023952-5bc04b90816f
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/golang/snappy v0.0.1
 	github.com/google/gops v0.3.7
