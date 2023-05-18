@@ -43,7 +43,7 @@ func init() {
 
 type ServiceBundle func() []Service
 
-var log = logx.GetLogger("moa_server")
+var log = logx.GetLogger("moa-server")
 
 type Application struct {
 	ctx  context.Context
