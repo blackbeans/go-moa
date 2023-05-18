@@ -43,7 +43,7 @@ func init() {
 
 type ServiceBundle func() []Service
 
-var log = logx.GetLogger("moa")
+var log = logx.GetLogger("moa_server")
 
 type Application struct {
 	ctx  context.Context
@@ -63,8 +63,8 @@ func NewApplicationWithContext(ctx context.Context, configPath string, bundle Se
 }
 
 func initApplication(ctx context.Context, configPath string, bundle ServiceBundle, monitor func(serviceUri, host string, moainfo MoaInfo)) *Application {
-	services := bundle()
 
+	services := bundle()
 	options, err := LoadConfiguration(configPath)
 	if nil != err {
 		panic(err)
