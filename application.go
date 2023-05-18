@@ -63,7 +63,7 @@ func NewApplicationWithContext(ctx context.Context, configPath string, bundle Se
 }
 
 func initApplication(ctx context.Context, configPath string, bundle ServiceBundle, monitor func(serviceUri, host string, moainfo MoaInfo)) *Application {
-
+	log = logx.GetLogger("moa-server")
 	services := bundle()
 	options, err := LoadConfiguration(configPath)
 	if nil != err {
